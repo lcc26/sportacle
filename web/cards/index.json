@@ -3,112 +3,112 @@
     "slug": "south-korea",
     "team": "South Korea",
     "opponent": "Canada",
-    "prob": 29,
+    "prob": 28,
     "png": "cards/south-korea.png"
   },
   {
     "slug": "brazil",
     "team": "Brazil",
     "opponent": "Japan",
-    "prob": 36,
+    "prob": 33,
     "png": "cards/brazil.png"
   },
   {
     "slug": "germany",
     "team": "Germany",
     "opponent": "Czechia",
-    "prob": 17,
+    "prob": 14,
     "png": "cards/germany.png"
   },
   {
-    "slug": "netherlands",
-    "team": "Netherlands",
+    "slug": "sweden",
+    "team": "Sweden",
     "opponent": "Morocco",
-    "prob": 42,
-    "png": "cards/netherlands.png"
+    "prob": 36,
+    "png": "cards/sweden.png"
   },
   {
     "slug": "ivory-coast",
     "team": "Ivory Coast",
     "opponent": "Norway",
-    "prob": 51,
+    "prob": 44,
     "png": "cards/ivory-coast.png"
   },
   {
     "slug": "france",
     "team": "France",
-    "opponent": "Scotland",
-    "prob": 17,
+    "opponent": "Morocco",
+    "prob": 11,
     "png": "cards/france.png"
   },
   {
     "slug": "mexico",
     "team": "Mexico",
     "opponent": "Ecuador",
-    "prob": 11,
+    "prob": 9,
     "png": "cards/mexico.png"
   },
   {
     "slug": "england",
     "team": "England",
     "opponent": "Congo DR",
-    "prob": 25,
+    "prob": 22,
     "png": "cards/england.png"
   },
   {
     "slug": "belgium",
     "team": "Belgium",
     "opponent": "Czechia",
-    "prob": 15,
+    "prob": 13,
     "png": "cards/belgium.png"
   },
   {
     "slug": "united-states",
     "team": "United States",
-    "opponent": "Bosnia-Herzegovina",
-    "prob": 12,
+    "opponent": "Qatar",
+    "prob": 11,
     "png": "cards/united-states.png"
   },
   {
     "slug": "spain",
     "team": "Spain",
     "opponent": "Austria",
-    "prob": 63,
+    "prob": 53,
     "png": "cards/spain.png"
   },
   {
     "slug": "colombia",
     "team": "Colombia",
     "opponent": "Croatia",
-    "prob": 44,
+    "prob": 38,
     "png": "cards/colombia.png"
   },
   {
     "slug": "switzerland",
     "team": "Switzerland",
-    "opponent": "Sweden",
-    "prob": 15,
+    "opponent": "Egypt",
+    "prob": 13,
     "png": "cards/switzerland.png"
   },
   {
     "slug": "australia",
     "team": "Australia",
     "opponent": "Egypt",
-    "prob": 40,
+    "prob": 32,
     "png": "cards/australia.png"
   },
   {
     "slug": "argentina",
     "team": "Argentina",
     "opponent": "Uruguay",
-    "prob": 39,
+    "prob": 31,
     "png": "cards/argentina.png"
   },
   {
     "slug": "portugal",
     "team": "Portugal",
-    "opponent": "Ghana",
-    "prob": 22,
+    "opponent": "Croatia",
+    "prob": 21,
     "png": "cards/portugal.png"
   }
 ]

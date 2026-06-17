@@ -6,10 +6,40 @@ var SITE_URL = 'https://gosportacle.com';
 
 function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
+// Broadcast nation-name normalization. The engine writes whatever it likes into
+// data/predictions.json; we map a handful of names to the form an English-language
+// broadcaster would say on air. Display only: the data and flag codes are untouched.
+var DISPLAY_NAMES = {
+  'Congo DR': 'DR Congo',
+  'Bosnia-Herzegovina': 'Bosnia and Herzegovina',
+  'Bosnia Herzegovina': 'Bosnia and Herzegovina',
+  'Turkiye': 'Türkiye'
+};
+function displayName(name){
+  var n = name == null ? '' : String(name);
+  return Object.prototype.hasOwnProperty.call(DISPLAY_NAMES, n) ? DISPLAY_NAMES[n] : n;
+}
+
+// Confidence wording keyed to the top-pick probability, so a near-lock and an
+// 11 percent toss-up never wear the same label. This pairs with the green-to-red
+// glow: words carry the honesty, color carries the feel. Tuned to the calibrated
+// model range; this early in the tournament almost nothing is truly locked in.
+//   >= 55  near-certain, this opponent is close to locked in
+//   >= 40  a clear favourite to be the opponent
+//   >= 25  the most likely opponent, but far from settled
+//   <  25  a wide-open slot, anyone's to take
+function confidence(prob){
+  if (prob == null) return null;
+  if (prob >= 55) return { tag: 'LOCKED IN', lbl: 'Close to locked in' };
+  if (prob >= 40) return { tag: 'LIKELY', lbl: 'Clear favourite' };
+  if (prob >= 25) return { tag: 'LEANING', lbl: 'Most likely, not settled' };
+  return { tag: 'WIDE OPEN', lbl: 'Wide open slot' };
+}
+
 // Validate the small set of formats that come from the prediction engine so a
 // future hostile/garbled value cannot inject CSS into the inline style attr.
 function safeColor(c){ return /^#[0-9a-fA-F]{3,8}$/.test(c) ? c : '#5A6473'; }
-function safeCode(c){ return /^[a-z]{2,3}$/.test(c) ? c : ''; }
+function safeCode(c){ return /^[a-z]{2,3}(-[a-z]{2,4})?$/.test(c) ? c : ''; } // allow federation codes (gb-eng, gb-sct, gb-wls)
 
 // Coerce a probability to a finite 0..100 number; bad/missing -> null.
 function pct(v){ var n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : null; }
@@ -17,12 +47,34 @@ function pct(v){ var n = Number(v); return Number.isFinite(n) ? Math.max(0, Math
 // Build a URL-safe slug for the per-card anchor (deep links).
 function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
 
+// Probability-coded glow. The 16 live probs span 11..63, so the scale is
+// anchored to the meaningful confidence band (12 floor, 60 ceiling) rather than
+// a theoretical 0..100, which would crush every real card into red/amber.
+// t = 0 deep red, t = 0.5 warm amber, t = 1 grounded pitch green. We walk the
+// hue wheel the short way (2 to 40 to 142) to keep a natural stoplight feel and
+// dip saturation toward green so it reads premium, not neon.
+function glow(prob){
+  if (prob == null) return null;
+  var t = (prob - 12) / (60 - 12);
+  t = Math.max(0, Math.min(1, t));
+  var H, S, L, u;
+  if (t < 0.5){ u = t / 0.5; H = 2 + (40 - 2) * u; S = 72 + (88 - 72) * u; L = 47 + (52 - 47) * u; }
+  else { u = (t - 0.5) / 0.5; H = 40 + (142 - 40) * u; S = 88 + (60 - 88) * u; L = 52 + (42 - 52) * u; }
+  H = Math.round(H); S = Math.round(S); L = Math.round(L);
+  return {
+    t: t,
+    full: 'hsl(' + H + ' ' + S + '% ' + L + '%)',
+    a: 'hsla(' + H + ', ' + S + '%, ' + L + '%, .55)',
+    b: 'hsla(' + H + ', ' + S + '%, ' + L + '%, .28)'
+  };
+}
+
 function matchCard(m, i){
   var a = m && m.team, b = m && m.opponent;
   if (!a || !b) return ''; // skip a malformed row rather than wiping the board
 
-  var aName = a.name == null ? '' : String(a.name);
-  var bName = b.name == null ? '' : String(b.name);
+  var aName = displayName(a.name);
+  var bName = displayName(b.name);
   var ca = safeColor(a.color), cb = safeColor(b.color);
   var aCode = safeCode(a.code), bCode = safeCode(b.code);
   var aNote = a.note == null ? '' : String(a.note);
@@ -31,25 +83,39 @@ function matchCard(m, i){
   var pctText = p == null ? '' : p + '%';
   var barW = p == null ? 0 : p;
 
-  var alts = (m.alternates || []).map(function(x){
+  var altList = (m.alternates || []).map(function(x){
     var xp = pct(x && x.prob);
-    return esc(x && x.name != null ? String(x.name) : '') + (xp == null ? '' : ' ' + xp + '%');
-  }).filter(function(t){ return t.trim(); }).join(' &middot; ');
+    return esc(x ? displayName(x.name) : '') + (xp == null ? '' : ' ' + xp + '%');
+  }).filter(function(t){ return t.trim(); });
+  // Honest remainder: opponent + alternates + field sum to 100.
+  var fieldPct = pct(m.field);
+  if (fieldPct != null && fieldPct > 0) altList.push('field ' + fieldPct + '%');
+  var alts = altList.join(' &middot; ');
 
   var anchor = 'm-' + (slug(aName) || ('row-' + i));
 
   // Share copy. Brand rule: NO em/en dashes. Use a colon and parentheses.
   var pctPhrase = p == null ? '' : ' (' + p + '%)';
-  var shareText = aName + "'s most likely Round of 32 opponent: " + bName + pctPhrase + '. Projected by @TheSportacle';
+  var shareText = aName + "'s most likely Round of 32 opponent: " + bName + pctPhrase + '. Per-team projection by @TheSportacle';
   var shareUrl = SITE_URL + '/#' + anchor;
   var xHref = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText) + '&url=' + encodeURIComponent(shareUrl);
 
   var aImg = aCode ? '<img class="flag" src="flags/' + aCode + '.png" alt="" loading="lazy" width="84" height="56">' : '<span class="flag flag-blank" aria-hidden="true"></span>';
   var bImg = bCode ? '<img class="flag" src="flags/' + bCode + '.png" alt="" loading="lazy" width="84" height="56">' : '<span class="flag flag-blank" aria-hidden="true"></span>';
 
-  var aria = bName ? (aName + ' meets ' + bName + (p == null ? '' : ' at ' + p + ' percent')) : ('forecast for ' + aName);
+  var aria = bName ? (aName + "'s most likely last-32 opponent: " + bName + (p == null ? '' : ', ' + p + ' percent')) : ('forecast for ' + aName);
 
-  return '<article class="match" id="' + esc(anchor) + '" style="--ca:' + ca + ';--cb:' + cb + '">'
+  // Confidence wording keyed to the probability (honest framing).
+  var conf = confidence(p);
+
+  // Probability-coded glow: color the card border/halo by confidence. When prob
+  // is null we emit no glow props so the card falls back to the neutral --line.
+  var g = glow(p);
+  var glowStyle = g ? (';--glow:' + g.full + ';--glowA:' + g.a + ';--glowB:' + g.b + ';--glowT:' + g.t.toFixed(3)) : '';
+  // The most confident picks (t >= 0.7, roughly prob >= 46) get a gentle breathe.
+  var confident = g && g.t >= 0.7 ? ' is-confident' : '';
+
+  return '<article class="match' + confident + '" id="' + esc(anchor) + '" style="--ca:' + ca + ';--cb:' + cb + glowStyle + ';--i:' + i + '">'
     + '<div class="sides">'
       + '<div class="side">'
         + aImg
@@ -59,13 +125,14 @@ function matchCard(m, i){
       + '<span class="vs" aria-hidden="true">VS</span>'
       + '<div class="side">'
         + bImg
-        + '<span class="seed">Projected R32</span>'
+        + '<span class="seed">Projected last-32 opponent</span>'
         + '<span class="team">' + esc(bName) + '</span>'
       + '</div>'
     + '</div>'
     + '<div class="prob">'
-      + '<div class="prob-row"><span class="lbl">Most likely matchup</span><span class="pct">' + esc(pctText) + '</span></div>'
+      + '<div class="prob-row"><span class="lbl">Most likely opponent</span><span class="pct">' + esc(pctText) + '</span></div>'
       + '<div class="bar"><i style="width:' + barW + '%"></i></div>'
+      + (conf ? '<div class="conf conf-' + conf.tag.toLowerCase().replace(/[^a-z]+/g, '-') + '"><span class="conf-tag">' + esc(conf.tag) + '</span><span class="conf-lbl">' + esc(conf.lbl) + '</span></div>' : '')
       + (alts ? '<div class="alts">then ' + alts + '</div>' : '')
       + '<div class="share" role="group" aria-label="Share ' + esc(aria) + '">'
         + '<a class="share-btn share-x" href="' + esc(xHref) + '" target="_blank" rel="noopener" '
@@ -87,15 +154,11 @@ function matchCard(m, i){
 
 function wireShare(board){
   board.addEventListener('click', function(e){
-    var x = e.target.closest('.share-x');
-    if (x && navigator.share){
-      // Prefer the native sheet on devices that support it; fall back to the
-      // X intent (the link's own href) when share() is unavailable or rejected.
-      e.preventDefault();
-      navigator.share({ text: x.getAttribute('data-text'), url: x.getAttribute('data-url') })
-        .catch(function(){ window.open(x.href, '_blank', 'noopener'); });
-      return;
-    }
+    // The X "Share" button is a plain anchor to the X web composer (target=_blank,
+    // rel=noopener), so a click always opens the X intent on desktop and mobile.
+    // Deliberate for an X-first brand: the desktop OS share sheet often has no X
+    // target. We never intercept it; only the Copy button needs wiring.
+    if (e.target.closest('.share-x')) return;
 
     var copy = e.target.closest('.share-copy');
     if (copy){
@@ -140,7 +203,35 @@ function relTime(iso){
   return d + (d === 1 ? ' day' : ' days') + ' ago';
 }
 
-var lastIso = '', lastLabel = '', shareWired = false;
+var lastIso = '', lastLabel = '', shareWired = false, firstPaint = true;
+
+// One-shot enter polish (stagger + count-up), only on the very first paint.
+// load() reruns every 60s, so this is gated exactly like shareWired.
+function reducedMotion(){
+  return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+function countUp(board){
+  if (reducedMotion()) return; // final values are already correct in the DOM
+  var nodes = board.querySelectorAll('.pct');
+  nodes.forEach(function(el){
+    var m = /(\d+)/.exec(el.textContent || '');
+    if (!m) return;
+    var target = parseInt(m[1], 10);
+    if (!(target > 0)) return;
+    var dur = 700, start = null;
+    var step = function(ts){
+      if (start == null) start = ts;
+      var k = Math.min(1, (ts - start) / dur);
+      var eased = 1 - Math.pow(1 - k, 3); // easeOutCubic
+      el.textContent = Math.round(eased * target) + '%';
+      if (k < 1) requestAnimationFrame(step);
+      else el.textContent = target + '%';
+    };
+    el.textContent = '0%';
+    requestAnimationFrame(step);
+  });
+}
 
 function whenText(){ return relTime(lastIso) || lastLabel || ''; }
 
@@ -162,8 +253,14 @@ function load(){
       var note = document.getElementById('datanote');
       if (note) note.textContent = data.model || '';
       var board = document.getElementById('board');
-      board.innerHTML = (data.matchups || []).map(matchCard).join('') || '<p class="loading">No forecasts yet.</p>';
+      var html = (data.matchups || []).map(matchCard).join('');
+      if (firstPaint && html) board.classList.add('enter');
+      board.innerHTML = html || '<p class="loading">No forecasts yet.</p>';
       if (!shareWired) { wireShare(board); shareWired = true; }
+      if (firstPaint && html){
+        countUp(board);
+        firstPaint = false;
+      }
     })
     .catch(function(err){
       var b = document.getElementById('board');

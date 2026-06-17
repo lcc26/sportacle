@@ -32,8 +32,26 @@ import model
 import bracket
 import simulate
 from teams import TEAMS, meta
+from datetime import datetime, timedelta
 
 N_SIMS = 30000
+
+
+def _match_end_iso(kickoff_iso, minutes=115):
+    """ESPN's event 'date' is the KICKOFF time. A match runs about 115 minutes
+    wall-clock (90 + stoppage + halftime), so add that to get the final whistle.
+    Without it the site's 'updated X ago' label lags by roughly two hours."""
+    s = str(kickoff_iso).strip().replace("Z", "")
+    dt = None
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"):
+        try:
+            dt = datetime.strptime(s, fmt)
+            break
+        except ValueError:
+            continue
+    if dt is None:
+        return kickoff_iso
+    return (dt + timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%MZ")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "web", "data", "predictions.json"))
@@ -82,69 +100,90 @@ def _slot_note(code):
     return "Projected best third place"
 
 
+def _opp_payload(cond):
+    """From a conditional opponent count distribution, return
+    (opp_name, opp_prob, alternates, field) or None if empty.
+    opponent + alternates + field always sum to 100 (honest remainder)."""
+    total = sum(cond.values())
+    if total == 0:
+        return None
+    ranked = sorted(cond.items(), key=lambda kv: kv[1], reverse=True)
+    opp_name, opp_cnt = ranked[0]
+    opp_prob = int(round(100.0 * opp_cnt / total))
+    alternates = [
+        {"name": n, "prob": int(round(100.0 * c / total))}
+        for n, c in ranked[1:3]
+    ]
+    field = max(0, 100 - opp_prob - sum(a["prob"] for a in alternates))
+    return opp_name, opp_prob, alternates, field
+
+
 def build_matchups(results):
     slot_opponents = results["slot_opponents"]
-    feasible = results["feasible_sims"] or 1
-    matchups = []
 
+    # Pass 1: for each R32 slot, gather the host-side distribution and, for every
+    # possible host team, the opponent distribution CONDITIONAL on that host.
+    # The host is the more-determined side (a group winner over a runner-up, a
+    # runner-up over a third place).
+    slots = []
     for s in bracket.R32_SLOTS:
         m = s["match"]
-        # Decide which placeholder is the "team" (host) side.
         if _determinacy(s["home"]) >= _determinacy(s["away"]):
-            team_code, opp_code = s["home"], s["away"]
-            team_index = "home"
+            team_code, team_index = s["home"], "home"
         else:
-            team_code, opp_code = s["away"], s["home"]
-            team_index = "away"
-
-        # Most-likely concrete identity of the team side, and the opponent
-        # distribution conditional on nothing (marginal over all sims).
-        team_counter = defaultdict(int)
-        opp_counter = defaultdict(int)
+            team_code, team_index = s["away"], "away"
+        host_dist = defaultdict(int)
+        opp_by_host = defaultdict(lambda: defaultdict(int))
         for (home, away), cnt in slot_opponents[m].items():
             if home is None or away is None:
                 continue
             t = home if team_index == "home" else away
             o = away if team_index == "home" else home
-            team_counter[t] += cnt
-            opp_counter[o] += cnt
-
-        if not team_counter:
+            host_dist[t] += cnt
+            opp_by_host[t][o] += cnt
+        if not host_dist:
             continue
+        slots.append({
+            "match": m,
+            "team_code": team_code,
+            "host_dist": host_dist,
+            "opp_by_host": opp_by_host,
+            "top_share": max(host_dist.values()),
+        })
 
-        team_name = max(team_counter, key=team_counter.get)
-        # Opponent distribution restricted to runs where the team side is
-        # the projected team_name (so the percentages read naturally).
-        cond = defaultdict(int)
-        total = 0
-        for (home, away), cnt in slot_opponents[m].items():
-            t = home if team_index == "home" else away
-            o = away if team_index == "home" else home
-            if t == team_name and o is not None:
-                cond[o] += cnt
-                total += cnt
-        if total == 0:
-            cond, total = opp_counter, sum(opp_counter.values())
-
-        ranked = sorted(cond.items(), key=lambda kv: kv[1], reverse=True)
-        opp_name, opp_cnt = ranked[0]
-        opp_prob = int(round(100.0 * opp_cnt / total))
-
-        alternates = []
-        for name, cnt in ranked[1:3]:
-            alternates.append({"name": name, "prob": int(round(100.0 * cnt / total))})
-
-        team_obj = _team_obj(team_name, _slot_note(team_code))
+    # Pass 2: a team can occupy only ONE bracket slot, so every card must have a
+    # DISTINCT subject. Resolve the most-determined slots first; each takes its
+    # most likely host that is still free, so a group's two strong sides land on
+    # the winner and runner-up cards instead of both showing the same team.
+    slots.sort(key=lambda si: si["top_share"], reverse=True)
+    used = set()
+    built = []
+    for si in slots:
+        host = None
+        for name, _c in sorted(si["host_dist"].items(), key=lambda kv: kv[1], reverse=True):
+            if name not in used:
+                host = name
+                break
+        if host is None:
+            continue
+        payload = _opp_payload(si["opp_by_host"][host])
+        if payload is None:
+            continue
+        used.add(host)
+        opp_name, opp_prob, alternates, field = payload
+        team_obj = _team_obj(host, _slot_note(si["team_code"]))
         opp_obj = _team_obj(opp_name)
         opp_obj["prob"] = opp_prob
-
-        matchups.append({
+        built.append((si["match"], {
             "team": team_obj,
             "opponent": opp_obj,
             "alternates": alternates,
-        })
+            "field": field,
+        }))
 
-    return matchups
+    # Restore natural bracket order (match 1..16) for display.
+    built.sort(key=lambda x: x[0])
+    return [card for _m, card in built]
 
 
 def main():
@@ -167,7 +206,7 @@ def main():
     print("  R32 ties produced:      ", len(matchups))
 
     if last:
-        updated_iso = last["iso"]
+        updated_iso = _match_end_iso(last["iso"])
         hm = meta(last["home"]); am = meta(last["away"])
         last_result = "%s %d-%d %s" % (
             last["home"], last["home_goals"], last["away_goals"], last["away"]

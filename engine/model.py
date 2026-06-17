@@ -44,7 +44,14 @@ import random
 
 K_FACTOR = 40.0
 DRAW_BASE = 0.28        # draw probability when two equal teams meet
-DRAW_DECAY = 220.0      # larger -> draws stay likely further apart
+DRAW_DECAY = 260.0      # larger -> draws stay likely further apart
+# Outcome temperature. Elo UPDATES from real results stay on the standard /400
+# scale, but the SIMULATED match outcomes are softened by this factor (>1 flattens
+# the win curve). Real international football produces far more upsets than a raw
+# /400 logistic implies, so without this the projected-opponent marginals come out
+# over-confident this early (a slot reading 60%+ while two thirds of the group games
+# are still to play). 1.0 = raw Elo; higher = more upsets and less peaked marginals.
+OUTCOME_SCALE = 1.8
 
 
 def expected_score(rating_a, rating_b):
@@ -83,10 +90,11 @@ def outcome_probs(rating_h, rating_a):
     """
     d = rating_h - rating_a
     p_draw = DRAW_BASE * math.exp(-abs(d) / DRAW_DECAY)
-    p_draw = max(0.06, min(0.40, p_draw))
+    p_draw = max(0.07, min(0.40, p_draw))
     decisive = 1.0 - p_draw
-    # split decisive mass by logistic win expectation
-    e_h = expected_score(rating_h, rating_a)
+    # split decisive mass by the TEMPERED win expectation (see OUTCOME_SCALE),
+    # so favorites are less dominant and upsets stay realistically common
+    e_h = 1.0 / (1.0 + 10 ** (-d / (400.0 * OUTCOME_SCALE)))
     p_h = decisive * e_h
     p_a = decisive * (1.0 - e_h)
     return p_h, p_draw, p_a

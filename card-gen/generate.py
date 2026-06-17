@@ -23,6 +23,18 @@ INDEX_JSON = os.path.join(OUT_DIR, "index.json")
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
 
+# Broadcast nation-name normalization (display only; mirrors web/js/app.js).
+DISPLAY_NAMES = {
+    "Congo DR": "DR Congo",
+    "Bosnia-Herzegovina": "Bosnia and Herzegovina",
+    "Bosnia Herzegovina": "Bosnia and Herzegovina",
+}
+
+
+def display_name(name):
+    return DISPLAY_NAMES.get(name, name)
+
+
 def slugify(name):
     """South Korea -> south-korea (lowercase, non-alphanumerics to hyphens)."""
     s = name.lower()
@@ -31,16 +43,16 @@ def slugify(name):
 
 
 def build_query(team, opponent):
-    """URL-encode the matchup fields into the card's query string."""
+    """URL-encode the opponent-projection fields into the card's query string."""
     params = {
-        "an": team.get("name", ""),
+        "an": display_name(team.get("name", "")),
         "ac": team.get("code", ""),
         "acolor": team.get("color", ""),
         "anote": team.get("note", ""),
-        "bn": opponent.get("name", ""),
+        "bn": display_name(opponent.get("name", "")),
         "bc": opponent.get("code", ""),
         "bcolor": opponent.get("color", ""),
-        "bnote": "Projected Foe",
+        "bnote": "Projected opponent",
         "prob": str(opponent.get("prob", "")),
     }
     return urllib.parse.urlencode(params)
