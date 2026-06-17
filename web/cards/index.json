@@ -1,0 +1,114 @@
+[
+  {
+    "slug": "south-korea",
+    "team": "South Korea",
+    "opponent": "Canada",
+    "prob": 29,
+    "png": "cards/south-korea.png"
+  },
+  {
+    "slug": "brazil",
+    "team": "Brazil",
+    "opponent": "Japan",
+    "prob": 36,
+    "png": "cards/brazil.png"
+  },
+  {
+    "slug": "germany",
+    "team": "Germany",
+    "opponent": "Czechia",
+    "prob": 17,
+    "png": "cards/germany.png"
+  },
+  {
+    "slug": "netherlands",
+    "team": "Netherlands",
+    "opponent": "Morocco",
+    "prob": 42,
+    "png": "cards/netherlands.png"
+  },
+  {
+    "slug": "ivory-coast",
+    "team": "Ivory Coast",
+    "opponent": "Norway",
+    "prob": 51,
+    "png": "cards/ivory-coast.png"
+  },
+  {
+    "slug": "france",
+    "team": "France",
+    "opponent": "Scotland",
+    "prob": 17,
+    "png": "cards/france.png"
+  },
+  {
+    "slug": "mexico",
+    "team": "Mexico",
+    "opponent": "Ecuador",
+    "prob": 11,
+    "png": "cards/mexico.png"
+  },
+  {
+    "slug": "england",
+    "team": "England",
+    "opponent": "Congo DR",
+    "prob": 25,
+    "png": "cards/england.png"
+  },
+  {
+    "slug": "belgium",
+    "team": "Belgium",
+    "opponent": "Czechia",
+    "prob": 15,
+    "png": "cards/belgium.png"
+  },
+  {
+    "slug": "united-states",
+    "team": "United States",
+    "opponent": "Bosnia-Herzegovina",
+    "prob": 12,
+    "png": "cards/united-states.png"
+  },
+  {
+    "slug": "spain",
+    "team": "Spain",
+    "opponent": "Austria",
+    "prob": 63,
+    "png": "cards/spain.png"
+  },
+  {
+    "slug": "colombia",
+    "team": "Colombia",
+    "opponent": "Croatia",
+    "prob": 44,
+    "png": "cards/colombia.png"
+  },
+  {
+    "slug": "switzerland",
+    "team": "Switzerland",
+    "opponent": "Sweden",
+    "prob": 15,
+    "png": "cards/switzerland.png"
+  },
+  {
+    "slug": "australia",
+    "team": "Australia",
+    "opponent": "Egypt",
+    "prob": 40,
+    "png": "cards/australia.png"
+  },
+  {
+    "slug": "argentina",
+    "team": "Argentina",
+    "opponent": "Uruguay",
+    "prob": 39,
+    "png": "cards/argentina.png"
+  },
+  {
+    "slug": "portugal",
+    "team": "Portugal",
+    "opponent": "Ghana",
+    "prob": 22,
+    "png": "cards/portugal.png"
+  }
+]

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0E16;--surface:#141B27;--surface-2:#1E2736;--line:#2B3445;
+  --brand:#FFB627;--up:#23D18B;--down:#FF4D5E;
+  --text:#F2F5FA;--dim:#8C9AAE;--faint:#586577;
+  --display:"Saira Condensed",sans-serif;--ui:"Inter",sans-serif;--num:"JetBrains Mono",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1080px;height:1080px;overflow:hidden;background:var(--bg)}
+body{font-family:var(--ui);color:var(--text);-webkit-font-smoothing:antialiased}
+.card{width:1080px;height:1080px;padding:72px 72px 64px;display:flex;flex-direction:column;background:var(--bg)}
+.top{display:flex;justify-content:space-between;align-items:center}
+.brand{display:flex;align-items:center;gap:14px;font-family:var(--display);font-weight:900;font-size:38px;letter-spacing:1px;color:var(--brand);text-transform:uppercase}
+.orb{width:26px;height:26px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 6px rgba(255,182,39,.16)}
+.ctx{font-family:var(--ui);font-weight:600;font-size:19px;letter-spacing:4px;color:var(--faint);text-transform:uppercase}
+.scenario{margin-top:80px;font-family:var(--ui);font-weight:700;font-size:27px;letter-spacing:4px;color:var(--dim);text-transform:uppercase}
+.scenario b{color:var(--text);font-weight:800}
+.question{margin-top:16px;font-family:var(--display);font-weight:700;font-size:46px;letter-spacing:.5px;color:var(--text);text-transform:uppercase;line-height:1.02}
+.hero{margin-top:46px}
+.opp{font-family:var(--display);font-weight:900;font-size:158px;line-height:.9;letter-spacing:-1px;text-transform:uppercase;color:var(--text)}
+.code{margin-top:20px;font-family:var(--num);font-weight:700;font-size:23px;color:var(--brand);letter-spacing:3px}
+.prob{margin-top:auto}
+.prow{display:flex;align-items:flex-end;justify-content:space-between}
+.plab{font-family:var(--ui);font-weight:600;font-size:21px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;padding-bottom:16px}
+.pnum{font-family:var(--num);font-weight:800;font-size:128px;line-height:.78;color:var(--up)}
+.bar{margin-top:26px;height:20px;background:var(--surface-2);border-radius:12px;overflow:hidden}
+.bar i{display:block;height:100%;width:38%;background:var(--up);border-radius:12px}
+.alts{margin-top:30px;font-family:var(--num);font-weight:500;font-size:23px;color:var(--dim);letter-spacing:1px}
+.alts b{color:var(--text);font-weight:700}
+.foot{margin-top:46px;display:flex;justify-content:space-between;align-items:center}
+.handle{font-family:var(--ui);font-weight:700;font-size:24px;color:var(--text)}
+.handle span{color:var(--brand)}
+.note{font-family:var(--ui);font-weight:600;font-size:16px;color:var(--faint);letter-spacing:2px;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="top">
+    <div class="brand"><span class="orb"></span>Sportacle</div>
+    <div class="ctx">World Cup 2026</div>
+  </div>
+  <div class="scenario">IF <b>BRAZIL</b> WIN GROUP G</div>
+  <div class="question">Most likely Round of 32 opponent</div>
+  <div class="hero">
+    <div class="opp">South<br>Korea</div>
+    <div class="code">KOR &nbsp;·&nbsp; PROJECTED GROUP E RUNNER-UP</div>
+  </div>
+  <div class="prob">
+    <div class="prow">
+      <div class="plab">Chance of this matchup</div>
+      <div class="pnum">38%</div>
+    </div>
+    <div class="bar"><i></i></div>
+    <div class="alts">NEXT &nbsp; <b>URUGUAY</b> 24% &nbsp;·&nbsp; <b>GHANA</b> 19% &nbsp;·&nbsp; FIELD 19%</div>
+  </div>
+  <div class="foot">
+    <div class="handle">@<span>TheSportacle</span></div>
+    <div class="note">Sample · engine pending</div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,393 @@
+{
+  "tournament": "FIFA World Cup 2026",
+  "stage": "Projected Round of 32",
+  "updated_iso": "2026-06-17T17:00Z",
+  "model": "Sportacle forecast",
+  "matchups": [
+    {
+      "team": {
+        "name": "South Korea",
+        "code": "kr",
+        "color": "#0A3478",
+        "note": "Projected runner-up, Group A"
+      },
+      "opponent": {
+        "name": "Canada",
+        "code": "ca",
+        "color": "#D52B1E",
+        "prob": 29
+      },
+      "alternates": [
+        {
+          "name": "Bosnia-Herzegovina",
+          "prob": 28
+        },
+        {
+          "name": "Switzerland",
+          "prob": 24
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "Brazil",
+        "code": "br",
+        "color": "#1E9B4B",
+        "note": "Projected winner, Group C"
+      },
+      "opponent": {
+        "name": "Japan",
+        "code": "jp",
+        "color": "#BC002D",
+        "prob": 36
+      },
+      "alternates": [
+        {
+          "name": "Netherlands",
+          "prob": 31
+        },
+        {
+          "name": "Sweden",
+          "prob": 31
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "Germany",
+        "code": "de",
+        "color": "#2B2B2B",
+        "note": "Projected winner, Group E"
+      },
+      "opponent": {
+        "name": "Czechia",
+        "code": "cz",
+        "color": "#11457E",
+        "prob": 17
+      },
+      "alternates": [
+        {
+          "name": "Bosnia-Herzegovina",
+          "prob": 8
+        },
+        {
+          "name": "Canada",
+          "prob": 8
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "Netherlands",
+        "code": "nl",
+        "color": "#EC8B00",
+        "note": "Projected winner, Group F"
+      },
+      "opponent": {
+        "name": "Morocco",
+        "code": "ma",
+        "color": "#C1272D",
+        "prob": 42
+      },
+      "alternates": [
+        {
+          "name": "Brazil",
+          "prob": 30
+        },
+        {
+          "name": "Scotland",
+          "prob": 28
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "Ivory Coast",
+        "code": "ci",
+        "color": "#F77F00",
+        "note": "Projected runner-up, Group E"
+      },
+      "opponent": {
+        "name": "Norway",
+        "code": "no",
+        "color": "#BA0C2F",
+        "prob": 51
+      },
+      "alternates": [
+        {
+          "name": "France",
+          "prob": 24
+        },
+        {
+          "name": "Senegal",
+          "prob": 24
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "France",
+        "code": "fr",
+        "color": "#0055A4",
+        "note": "Projected winner, Group I"
+      },
+      "opponent": {
+        "name": "Scotland",
+        "code": "gb-sct",
+        "color": "#0065BF",
+        "prob": 17
+      },
+      "alternates": [
+        {
+          "name": "Morocco",
+          "prob": 11
+        },
+        {
+          "name": "Turkiye",
+          "prob": 11
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "Mexico",
+        "code": "mx",
+        "color": "#0B6B3A",
+        "note": "Projected winner, Group A"
+      },
+      "opponent": {
+        "name": "Ecuador",
+        "code": "ec",
+        "color": "#FFD100",
+        "prob": 11
+      },
+      "alternates": [
+        {
+          "name": "Senegal",
+          "prob": 9
+        },
+        {
+          "name": "Saudi Arabia",
+          "prob": 9
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "England",
+        "code": "gb-eng",
+        "color": "#CF142B",
+        "note": "Projected winner, Group L"
+      },
+      "opponent": {
+        "name": "Congo DR",
+        "code": "cd",
+        "color": "#007FFF",
+        "prob": 25
+      },
+      "alternates": [
+        {
+          "name": "Uzbekistan",
+          "prob": 17
+        },
+        {
+          "name": "Colombia",
+          "prob": 13
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "Belgium",
+        "code": "be",
+        "color": "#ED2939",
+        "note": "Projected winner, Group G"
+      },
+      "opponent": {
+        "name": "Czechia",
+        "code": "cz",
+        "color": "#11457E",
+        "prob": 15
+      },
+      "alternates": [
+        {
+          "name": "Senegal",
+          "prob": 9
+        },
+        {
+          "name": "Algeria",
+          "prob": 7
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "United States",
+        "code": "us",
+        "color": "#3C3B6E",
+        "note": "Projected winner, Group D"
+      },
+      "opponent": {
+        "name": "Bosnia-Herzegovina",
+        "code": "ba",
+        "color": "#002395",
+        "prob": 12
+      },
+      "alternates": [
+        {
+          "name": "Canada",
+          "prob": 11
+        },
+        {
+          "name": "Qatar",
+          "prob": 10
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "Spain",
+        "code": "es",
+        "color": "#C60B1E",
+        "note": "Projected winner, Group H"
+      },
+      "opponent": {
+        "name": "Austria",
+        "code": "at",
+        "color": "#ED2939",
+        "prob": 63
+      },
+      "alternates": [
+        {
+          "name": "Algeria",
+          "prob": 21
+        },
+        {
+          "name": "Argentina",
+          "prob": 13
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "Colombia",
+        "code": "co",
+        "color": "#FCD116",
+        "note": "Projected runner-up, Group K"
+      },
+      "opponent": {
+        "name": "Croatia",
+        "code": "hr",
+        "color": "#C8102E",
+        "prob": 44
+      },
+      "alternates": [
+        {
+          "name": "England",
+          "prob": 28
+        },
+        {
+          "name": "Ghana",
+          "prob": 17
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "Switzerland",
+        "code": "ch",
+        "color": "#D52B1E",
+        "note": "Projected winner, Group B"
+      },
+      "opponent": {
+        "name": "Sweden",
+        "code": "se",
+        "color": "#006AA7",
+        "prob": 15
+      },
+      "alternates": [
+        {
+          "name": "Egypt",
+          "prob": 12
+        },
+        {
+          "name": "Iran",
+          "prob": 11
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "Australia",
+        "code": "au",
+        "color": "#00843D",
+        "note": "Projected runner-up, Group D"
+      },
+      "opponent": {
+        "name": "Egypt",
+        "code": "eg",
+        "color": "#C8102E",
+        "prob": 40
+      },
+      "alternates": [
+        {
+          "name": "Belgium",
+          "prob": 23
+        },
+        {
+          "name": "Iran",
+          "prob": 21
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "Argentina",
+        "code": "ar",
+        "color": "#75AADB",
+        "note": "Projected winner, Group J"
+      },
+      "opponent": {
+        "name": "Uruguay",
+        "code": "uy",
+        "color": "#0038A8",
+        "prob": 39
+      },
+      "alternates": [
+        {
+          "name": "Saudi Arabia",
+          "prob": 22
+        },
+        {
+          "name": "Spain",
+          "prob": 21
+        }
+      ]
+    },
+    {
+      "team": {
+        "name": "Portugal",
+        "code": "pt",
+        "color": "#1B5E20",
+        "note": "Projected winner, Group K"
+      },
+      "opponent": {
+        "name": "Ghana",
+        "code": "gh",
+        "color": "#CE1126",
+        "prob": 22
+      },
+      "alternates": [
+        {
+          "name": "Panama",
+          "prob": 17
+        },
+        {
+          "name": "Croatia",
+          "prob": 14
+        }
+      ]
+    }
+  ],
+  "last_result": "Portugal 1-1 Congo DR"
+}

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Khand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#11161F;
+  --teamA:#1E9B4B;
+  --teamB:#C8102E;
+  --display:"Khand",sans-serif;
+  --ui:"Barlow Semi Condensed",sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1080px;height:1080px;overflow:hidden;background:#ffffff}
+body{font-family:var(--ui);-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
+
+.card{position:relative;width:1080px;height:1080px;overflow:hidden;background:#ffffff}
+
+/* ===== TEAM HALVES (diagonal split) : each flag is a SOLID, full-color hero ===== */
+.half{position:absolute;top:0;bottom:0;width:1080px;height:1080px;overflow:hidden}
+
+/* boundary runs from x=614 (top) to x=466 (bottom) */
+/* LEFT : solid filled diagonal half. Flag pushed OUTWARD (left) so its heart
+   sits clear of the seam. Team-color background shows through any transparency. */
+.left{clip-path:polygon(0 0, 614px 0, 466px 1080px, 0 1080px);background:var(--teamA)}
+.left .flag{position:absolute;inset:0;width:100%;height:100%;
+   object-fit:cover;object-position:100% 50%;
+   filter:saturate(1.12) contrast(1.04)}
+/* slim top+bottom team-color scrims ONLY where text sits, so the flag stays crisp in the middle */
+.left .scrim-t{position:absolute;top:0;left:0;right:0;height:300px;z-index:3;
+   background:linear-gradient(180deg, rgba(0,0,0,.62) 0%, rgba(0,0,0,.24) 60%, rgba(0,0,0,0) 100%)}
+.left .scrim-b{position:absolute;bottom:0;left:0;right:0;height:300px;z-index:3;
+   background:linear-gradient(0deg, rgba(0,0,0,.64) 0%, rgba(0,0,0,.26) 52%, rgba(0,0,0,0) 100%)}
+
+/* RIGHT : solid filled diagonal half. Flag pushed OUTWARD (right). */
+.right{clip-path:polygon(614px 0, 1080px 0, 1080px 1080px, 466px 1080px);background:var(--teamB)}
+.right .flag{position:absolute;inset:0;width:100%;height:100%;
+   object-fit:cover;object-position:0% 50%;
+   filter:saturate(1.10) contrast(1.04)}
+.right .scrim-t{position:absolute;top:0;left:0;right:0;height:300px;z-index:3;
+   background:linear-gradient(180deg, rgba(0,0,0,.62) 0%, rgba(0,0,0,.24) 60%, rgba(0,0,0,0) 100%)}
+.right .scrim-b{position:absolute;bottom:0;left:0;right:0;height:300px;z-index:3;
+   background:linear-gradient(0deg, rgba(0,0,0,.64) 0%, rgba(0,0,0,.26) 52%, rgba(0,0,0,0) 100%)}
+
+/* the seam : crisp white blade tracing the exact diagonal */
+.seam{position:absolute;inset:0;z-index:6;pointer-events:none;
+   background:#ffffff;
+   clip-path:polygon(607px 0, 621px 0, 473px 1080px, 459px 1080px)}
+.seam-edge{position:absolute;inset:0;z-index:5;pointer-events:none;
+   background:linear-gradient(180deg, var(--teamA), var(--teamB));
+   clip-path:polygon(601px 0, 627px 0, 479px 1080px, 453px 1080px);opacity:.9}
+
+/* ===== TEAM NAME PLATES ===== */
+.names{position:absolute;top:66px;left:0;right:0;z-index:20;
+   display:flex;justify-content:space-between;padding:0 76px}
+.team{width:400px}
+.team.b{text-align:left}
+.team.k{text-align:right}
+.seed{font-family:var(--ui);font-weight:800;font-size:22px;letter-spacing:5px;
+   text-transform:uppercase;margin-bottom:2px;color:#fff;
+   text-shadow:0 2px 8px rgba(0,0,0,.55)}
+.nm{font-family:var(--display);font-weight:700;line-height:.82;
+   text-transform:uppercase;letter-spacing:0px;color:#fff;
+   text-shadow:0 3px 16px rgba(0,0,0,.6)}
+.nm.s1{font-size:112px}
+.nm.s2{font-size:96px}
+.nm.s3{font-size:72px}
+
+/* ===== CENTER : neutral WHITE VS medallion, dead-center on the seam ===== */
+.medal{position:absolute;left:50%;top:486px;transform:translate(-50%,-50%);
+   z-index:22;
+   width:158px;height:158px;border-radius:50%;
+   display:flex;align-items:center;justify-content:center;
+   background:#ffffff;
+   border:5px solid var(--ink);
+   box-shadow:0 0 0 9px rgba(255,255,255,.94),0 22px 50px rgba(0,0,0,.38)}
+.medal:before{content:"";position:absolute;inset:11px;border-radius:50%;
+   border:2px solid rgba(17,22,31,.22)}
+.vs{font-family:var(--display);font-weight:700;font-size:88px;line-height:1;
+   color:var(--ink);letter-spacing:1px}
+
+/* ===== LOWER STAT BAND : the big probability in a white plate ===== */
+.stat{position:absolute;left:50%;bottom:170px;transform:translateX(-50%);
+   z-index:21;text-align:center;
+   padding:18px 50px 22px;border-radius:30px;
+   background:rgba(255,255,255,.96);
+   box-shadow:0 20px 54px rgba(0,0,0,.26)}
+.bignum{font-family:var(--display);font-weight:700;font-size:208px;line-height:.76;
+   color:var(--ink);letter-spacing:-3px;display:inline-block}
+.bignum .pc{font-size:106px;vertical-align:top;margin-left:4px;
+   -webkit-text-fill-color:var(--teamA);color:var(--teamA)}
+.statlabel{font-family:var(--ui);font-weight:800;font-size:26px;letter-spacing:7px;
+   text-transform:uppercase;color:var(--ink);margin-top:8px}
+
+/* ===== BRAND FOOTER ===== */
+.brand{position:absolute;left:0;right:0;bottom:48px;z-index:22;text-align:center}
+.wm{font-family:var(--display);font-weight:700;font-size:46px;letter-spacing:3px;
+   text-transform:uppercase;line-height:1;color:var(--ink);
+   display:inline-block;padding:8px 26px;border-radius:999px;
+   background:rgba(255,255,255,.94);box-shadow:0 10px 28px rgba(0,0,0,.22)}
+.wm b{color:var(--teamA);font-weight:700}
+.hand{font-family:var(--ui);font-weight:700;font-size:20px;letter-spacing:3px;
+   text-transform:uppercase;color:var(--ink);margin-top:10px;
+   display:inline-block;padding:5px 16px;border-radius:999px;
+   background:rgba(255,255,255,.88)}
+</style>
+</head>
+<body>
+<div class="card">
+
+  <!-- LEFT : team A -->
+  <div class="half left">
+    <img class="flag" id="flagA" alt="Team A flag">
+    <div class="scrim-t"></div>
+    <div class="scrim-b"></div>
+  </div>
+
+  <!-- RIGHT : team B -->
+  <div class="half right">
+    <img class="flag" id="flagB" alt="Team B flag">
+    <div class="scrim-t"></div>
+    <div class="scrim-b"></div>
+  </div>
+
+  <div class="seam-edge"></div>
+  <div class="seam"></div>
+
+  <!-- name plates -->
+  <div class="names">
+    <div class="team b">
+      <div class="seed" id="noteA">Winner Group X</div>
+      <div class="nm s1" id="nameA">Team A</div>
+    </div>
+    <div class="team k">
+      <div class="seed" id="noteB">Projected Foe</div>
+      <div class="nm s1" id="nameB">Team B</div>
+    </div>
+  </div>
+
+  <!-- center : neutral white VS medallion on the seam -->
+  <div class="medal"><span class="vs">VS</span></div>
+
+  <!-- lower stat band : the big probability -->
+  <div class="stat">
+    <div class="bignum" id="prob">38<span class="pc">%</span></div>
+    <div class="statlabel">Matchup Probability</div>
+  </div>
+
+  <!-- brand -->
+  <div class="brand">
+    <div class="wm">Sport<b>acle</b></div>
+    <div class="hand">@TheSportacle &middot; gosportacle.com</div>
+  </div>
+
+</div>
+
+<script>
+/* Parameterized: read matchup from the URL query string and populate the card.
+   Flags are loaded from ../web/flags/<code>.png and baked into the output PNG. */
+(function(){
+  var q = new URLSearchParams(window.location.search);
+  function val(k, d){ var v = q.get(k); return (v === null || v === "") ? d : v; }
+
+  var an = val("an", "Team A");
+  var bn = val("bn", "Team B");
+  var ac = val("ac", "");
+  var bc = val("bc", "");
+  var acolor = val("acolor", "#1E9B4B");
+  var bcolor = val("bcolor", "#C8102E");
+  var anote = val("anote", "");
+  var bnote = val("bnote", "Projected Foe");
+  var prob = val("prob", "0");
+
+  var root = document.documentElement.style;
+  root.setProperty("--teamA", acolor);
+  root.setProperty("--teamB", bcolor);
+
+  if (ac) document.getElementById("flagA").src = "../web/flags/" + ac + ".png";
+  if (bc) document.getElementById("flagB").src = "../web/flags/" + bc + ".png";
+
+  /* Size names so long ones still fit one half. Multi-word names break across
+     lines; size class scales to total character count. */
+  function applyName(elId, name){
+    var el = document.getElementById(elId);
+    var words = name.split(" ");
+    var longest = 0, ch = name.length;
+    for (var i = 0; i < words.length; i++){ if (words[i].length > longest) longest = words[i].length; }
+    var cls = "nm s1";
+    if (ch > 9 && words.length > 1) cls = "nm s2";
+    if (longest > 9 || ch > 16) cls = "nm s3";
+    el.className = cls;
+    /* break between words when the name is long, so it stacks inside its half */
+    if (words.length > 1 && ch > 9){
+      el.innerHTML = words.join("<br>");
+    } else {
+      el.textContent = name;
+    }
+  }
+  applyName("nameA", an);
+  applyName("nameB", bn);
+
+  document.getElementById("noteA").textContent = anote ? anote.toUpperCase() : "";
+  document.getElementById("noteB").textContent = bnote ? bnote.toUpperCase() : "";
+
+  var p = parseInt(prob, 10); if (isNaN(p)) p = 0;
+  document.getElementById("prob").innerHTML = p + '<span class="pc">%</span>';
+})();
+</script>
+</body>
+</html>

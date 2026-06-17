@@ -1,0 +1,45 @@
+# Refresh the live Round-of-32 projection and deploy it to Netlify.
+#
+# Runs the Python engine (standard library only, no API key): it pulls live
+# ESPN results, runs the simulation, rewrites web/data/predictions.json with a
+# fresh updated_iso, then deploys web/ straight to the Netlify production site
+# via the CLI (no git integration required).
+#
+# Triggers: cron every 15 minutes, plus a manual run from the Actions tab.
+#
+# Required repo secrets (Settings > Secrets and variables > Actions):
+#   NETLIFY_AUTH_TOKEN  a Netlify personal access token (make a dedicated one)
+#   NETLIFY_SITE_ID     a47c0609-7b05-4d98-9167-bfbbaa4f0c2c
+name: update-predictions
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-sportacle
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run the engine (fetch live results, recompute projections)
+        run: python3 engine/run.py
+
+      - name: Deploy web/ to Netlify production
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: npx --yes netlify-cli@latest deploy --dir=web --prod --site "${{ secrets.NETLIFY_SITE_ID }}" --message "auto refresh: live projections"

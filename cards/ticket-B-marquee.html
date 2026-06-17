@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0E16;--surface:#141B27;--surface-2:#1E2736;--line:#2B3445;
+  --brand:#FFB627;--up:#23D18B;--down:#FF4D5E;
+  --text:#F2F5FA;--dim:#8C9AAE;--faint:#586577;
+  --display:"Saira Condensed",sans-serif;--ui:"Inter",sans-serif;--num:"JetBrains Mono",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1080px;height:1080px;overflow:hidden;background:var(--bg)}
+body{font-family:var(--ui);color:var(--text);-webkit-font-smoothing:antialiased}
+.card{position:relative;width:1080px;height:1080px;padding:72px 72px 64px 90px;display:flex;flex-direction:column;background:var(--bg)}
+.stripe{position:absolute;left:0;top:0;bottom:0;width:18px;background:var(--brand)}
+.top{display:flex;justify-content:space-between;align-items:center}
+.brand{display:flex;align-items:center;gap:14px;font-family:var(--display);font-weight:900;font-size:36px;letter-spacing:1px;color:var(--brand);text-transform:uppercase}
+.orb{width:24px;height:24px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 6px rgba(255,182,39,.16)}
+.kicker{font-family:var(--ui);font-weight:700;font-size:19px;letter-spacing:5px;color:var(--faint);text-transform:uppercase}
+.mid{margin:auto 0}
+.steam{font-family:var(--display);font-weight:900;font-size:100px;line-height:.9;letter-spacing:-1px;color:var(--text);text-transform:uppercase}
+.scond{margin-top:14px;font-family:var(--ui);font-weight:700;font-size:30px;letter-spacing:3px;color:var(--dim);text-transform:uppercase}
+.reveal{margin-top:44px}
+.rlab{font-family:var(--ui);font-weight:700;font-size:22px;letter-spacing:4px;color:var(--faint);text-transform:uppercase}
+.opp{margin-top:8px;display:flex;align-items:center;gap:30px;flex-wrap:wrap}
+.oppname{font-family:var(--display);font-weight:900;font-size:134px;line-height:.86;letter-spacing:-1px;color:var(--brand);text-transform:uppercase}
+.pill{display:inline-flex;align-items:baseline;gap:9px;background:var(--up);color:#06301F;font-family:var(--num);font-weight:800;font-size:36px;padding:14px 24px;border-radius:14px;letter-spacing:1px}
+.pill span{font-size:18px;font-weight:700;color:#0A4A30}
+.alts{margin-top:48px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.alt{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px 26px}
+.alt .t{font-family:var(--display);font-weight:800;font-size:36px;color:var(--text);text-transform:uppercase;line-height:1}
+.alt .p{margin-top:10px;font-family:var(--num);font-weight:700;font-size:42px;color:var(--up)}
+.alt .l{margin-top:6px;font-family:var(--ui);font-weight:600;font-size:15px;letter-spacing:2px;color:var(--faint);text-transform:uppercase}
+.foot{display:flex;justify-content:space-between;align-items:center}
+.handle{font-family:var(--ui);font-weight:700;font-size:23px;color:var(--text)}
+.handle span{color:var(--brand)}
+.note{font-family:var(--ui);font-weight:600;font-size:16px;color:var(--faint);letter-spacing:2px;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="stripe"></div>
+  <div class="top">
+    <div class="brand"><span class="orb"></span>Sportacle</div>
+    <div class="kicker">The Draw · Projected</div>
+  </div>
+  <div class="mid">
+    <div class="steam">Brazil</div>
+    <div class="scond">Win Group G, and your Round of 32 is...</div>
+    <div class="reveal">
+      <div class="rlab">Most likely opponent</div>
+      <div class="opp">
+        <div class="oppname">South Korea</div>
+        <div class="pill">38% <span>LIKELY</span></div>
+      </div>
+    </div>
+    <div class="alts">
+      <div class="alt"><div class="t">Uruguay</div><div class="p">24%</div><div class="l">Next most likely</div></div>
+      <div class="alt"><div class="t">Ghana</div><div class="p">19%</div><div class="l">In the mix</div></div>
+      <div class="alt"><div class="t">The field</div><div class="p">19%</div><div class="l">Everyone else</div></div>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="handle">@<span>TheSportacle</span> · gosportacle.com</div>
+    <div class="note">Sample · engine pending</div>
+  </div>
+</div>
+</body>
+</html>
