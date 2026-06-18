@@ -159,10 +159,15 @@ seeding = True
 
 def save_state():
     try:
-        with open(STATE_PATH, "w") as f:
+        d = os.path.dirname(STATE_PATH)
+        if d:
+            os.makedirs(d, exist_ok=True)
+        tmp = STATE_PATH + ".tmp"
+        with open(tmp, "w") as f:
             json.dump({"snap": snap, "seen": list(seen), "cards": cards}, f)
-    except Exception:
-        pass
+        os.replace(tmp, STATE_PATH)  # atomic
+    except Exception as e:
+        print("[state] save failed (%s): %s" % (STATE_PATH, e), flush=True)
 def load_state():
     global snap, seen, cards, seeding
     try:
@@ -170,8 +175,11 @@ def load_state():
             d = json.load(f)
         snap = d.get("snap", {}); seen = set(d.get("seen", [])); cards = d.get("cards", [])
         seeding = False  # we already have prior state; don't retro-emit
-    except Exception:
-        pass
+        print("[state] loaded %d cards / %d seen from %s" % (len(cards), len(seen), STATE_PATH), flush=True)
+    except FileNotFoundError:
+        print("[state] no prior state at %s (fresh start, will seed)" % STATE_PATH, flush=True)
+    except Exception as e:
+        print("[state] load failed (%s): %s" % (STATE_PATH, e), flush=True)
 
 def add_card(key, kind, ctype, params, label, matchup):
     with LOCK:
