@@ -4,16 +4,15 @@
 // live in app.js; this module is supplementary and fails quietly so a flaky ESPN
 // response can never break the board.
 //
-// Day rule (Chase): a match belongs to the day its KICKOFF falls on, in Central
-// time, not its end time. ESPN's scoreboard groups by UTC date, which throws a
-// late kickoff (e.g. 11pm CT = 04:00 UTC) onto the wrong day, so we fetch a wide
-// window and bucket precisely by Central kickoff here.
+// Day rule: a match belongs to the day its KICKOFF falls on, in the VISITOR'S
+// local timezone (so "today" is correct wherever the site is opened), not its end
+// time. ESPN's scoreboard groups by UTC date, which throws a late kickoff onto the
+// wrong day, so we fetch a wide window and bucket precisely by local kickoff here.
 (function () {
   'use strict';
 
   var SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
   var STANDINGS = 'https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings?season=2026';
-  var TZ = 'America/Chicago';
   var REFRESH_MS = 30000; // re-pull scores/standings/live state every 30s
 
   function esc(s) {
@@ -31,11 +30,13 @@
   };
   function nm(s) { s = s == null ? '' : String(s); return DISPLAY[s] || s; }
 
-  // YYYY-MM-DD for a Date, evaluated in Central, so day bucketing uses kickoff.
-  var ctDayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
-  function ctDay(d) { return ctDayFmt.format(d); }
-  var ctTimeFmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit' });
-  function ctTime(d) { return ctTimeFmt.format(d) + ' CT'; }
+  // Day bucketing and clock times use the VISITOR'S LOCAL timezone, so the site
+  // is correct wherever it is opened (in Central this is unchanged). The countdown
+  // itself is an absolute duration off the kickoff instant, correct everywhere.
+  var dayFmt = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  function localDay(d) { return dayFmt.format(d); }
+  var timeFmt = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  function localTime(d) { return timeFmt.format(d); }
 
   // UTC YYYYMMDD for the ESPN dates= window (we filter precisely client-side after).
   function utcYmd(d) {
@@ -138,8 +139,7 @@
       el.innerHTML =
         '<span class="lb-label">Next match</span>' +
         '<span class="lb-main">' + esc(nm(n.home.name)) + ' v ' + esc(nm(n.away.name)) + '</span>' +
-        '<span class="lb-count">' + fmtCountdown(countTarget - Date.now()) + '</span>' +
-        '<span class="lb-when">' + esc(ctTime(n.date)) + '</span>';
+        '<span class="lb-count">' + fmtCountdown(countTarget - Date.now()) + '</span>';
       return;
     }
 
@@ -166,8 +166,8 @@
     var note = document.getElementById('scoresnote');
     if (!el) return;
 
-    var today = ctDay(new Date());
-    var todays = events.filter(function (ev) { return ctDay(ev.date) === today; }).sort(byDate);
+    var today = localDay(new Date());
+    var todays = events.filter(function (ev) { return localDay(ev.date) === today; }).sort(byDate);
 
     if (!todays.length) {
       el.innerHTML = '<p class="loading">No matches kick off today.</p>';
@@ -190,7 +190,7 @@
       }
 
       var status;
-      if (pre) status = '<span class="score-status">' + esc(ctTime(ev.date)) + '</span>';
+      if (pre) status = '<span class="score-status">' + esc(localTime(ev.date)) + '</span>';
       else if (live) status = '<span class="score-status live"><span class="lb-dot" aria-hidden="true"></span>' + esc(ev.shortDetail || ev.detail || 'Live') + '</span>';
       else status = '<span class="score-status">' + esc(ev.detail || 'FT') + '</span>';
 

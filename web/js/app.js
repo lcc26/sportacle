@@ -25,13 +25,13 @@ function displayName(name){
 // glow: words carry the honesty, color carries the feel. Tuned to the calibrated
 // model range; this early in the tournament almost nothing is truly locked in.
 //   >= 55  near-certain, this opponent is close to locked in
-//   >= 40  a clear favourite to be the opponent
+//   >= 40  a clear favorite to be the opponent
 //   >= 25  the most likely opponent, but far from settled
 //   <  25  a wide-open slot, anyone's to take
 function confidence(prob){
   if (prob == null) return null;
   if (prob >= 55) return { tag: 'LOCKED IN', lbl: 'Close to locked in' };
-  if (prob >= 40) return { tag: 'LIKELY', lbl: 'Clear favourite' };
+  if (prob >= 40) return { tag: 'LIKELY', lbl: 'Clear favorite' };
   if (prob >= 25) return { tag: 'LEANING', lbl: 'Most likely, not settled' };
   return { tag: 'WIDE OPEN', lbl: 'Wide open slot' };
 }
