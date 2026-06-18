@@ -221,57 +221,64 @@
   }
   function numStat(entry, name) { var v = parseFloat(statOf(entry, name)); return Number.isFinite(v) ? v : 0; }
 
-  function renderStandings(json) {
+  // Live games (state 'in') as provisional results to fold into the standings.
+  function liveGamesFrom(events) {
+    return (events || []).filter(function (ev) { return ev.state === 'in'; }).map(function (ev) {
+      return { h: ev.home.name, a: ev.away.name, hs: ev.home.score, as: ev.away.score };
+    });
+  }
+  function cn(s) { return String(s || '').toLowerCase().trim(); }
+  function provisional(base, isHome, hs, as) {
+    var my = isHome ? hs : as, opp = isHome ? as : hs;
+    var p = { P: base.P + 1, W: base.W, D: base.D, L: base.L, GD: base.GD + (my - opp), Pts: base.Pts, GF: base.GF + my };
+    if (my > opp) { p.W += 1; p.Pts += 3; } else if (my < opp) { p.L += 1; } else { p.D += 1; p.Pts += 1; }
+    return p;
+  }
+
+  // Standings with in-progress games folded in PROVISIONALLY: a team currently
+  // winning shows the +3 (or +1 for a draw), the group re-sorts live, and the live
+  // group + its two teams are highlighted until the in-game result changes.
+  function renderStandings(json, events) {
     var el = document.getElementById('standingsgrid');
     var note = document.getElementById('standingsnote');
     if (!el) return;
-
-    var groups = ((json && json.children) || []).slice().sort(function (a, b) {
-      return String(a.name).localeCompare(String(b.name));
-    });
-    if (!groups.length) {
-      el.innerHTML = '<p class="loading">Standings unavailable right now.</p>';
-      return;
-    }
+    var groups = ((json && json.children) || []).slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    if (!groups.length) { el.innerHTML = '<p class="loading">Standings unavailable right now.</p>'; return; }
+    var live = liveGamesFrom(events || []);
+    var liveGroups = 0;
 
     var html = groups.map(function (g) {
       var entries = (((g.standings || {}).entries) || []).slice();
-      // ESPN usually pre-sorts by rank; sort defensively: points, then GD, then GF.
-      entries.sort(function (a, b) {
-        var ra = numStat(a, 'rank'), rb = numStat(b, 'rank');
-        if (ra && rb && ra !== rb) return ra - rb;
-        var pa = numStat(a, 'points'), pb = numStat(b, 'points');
-        if (pa !== pb) return pb - pa;
-        var da = numStat(a, 'pointDifferential'), db = numStat(b, 'pointDifferential');
-        if (da !== db) return db - da;
-        return numStat(b, 'pointsFor') - numStat(a, 'pointsFor');
+      var groupLive = false;
+      var rows = entries.map(function (en) {
+        var t = en.team || {}, name = t.displayName || '';
+        var base = { P: numStat(en, 'gamesPlayed'), W: numStat(en, 'wins'), D: numStat(en, 'ties'), L: numStat(en, 'losses'), GD: numStat(en, 'pointDifferential'), Pts: numStat(en, 'points'), GF: numStat(en, 'pointsFor') };
+        var s = base, isLive = false;
+        for (var k = 0; k < live.length; k++) {
+          if (cn(live[k].h) === cn(name)) { s = provisional(base, true, live[k].hs, live[k].as); isLive = true; groupLive = true; break; }
+          if (cn(live[k].a) === cn(name)) { s = provisional(base, false, live[k].hs, live[k].as); isLive = true; groupLive = true; break; }
+        }
+        return { t: t, name: name, s: s, live: isLive };
       });
+      rows.sort(function (a, b) { return (b.s.Pts - a.s.Pts) || (b.s.GD - a.s.GD) || (b.s.GF - a.s.GF); });
+      if (groupLive) liveGroups++;
 
-      var rows = entries.map(function (en, i) {
-        var t = en.team || {};
-        var logo = (t.logos && t.logos[0] && t.logos[0].href) || t.logo || '';
+      var trs = rows.map(function (r, i) {
+        var t = r.t, logo = (t.logos && t.logos[0] && t.logos[0].href) || t.logo || '';
         var img = logo ? '<img src="' + esc(logo) + '" alt="" loading="lazy" width="22" height="15">' : '<span style="width:22px;height:15px;flex:none"></span>';
-        var adv = i < 2 ? ' class="adv"' : '';
-        return '<tr' + adv + '>' +
-          '<td class="tm"><div class="teamcell"><span class="pos">' + (i + 1) + '</span>' + img +
-          '<span class="nm">' + esc(nm(t.displayName || '')) + '</span></div></td>' +
-          '<td>' + esc(statOf(en, 'gamesPlayed')) + '</td>' +
-          '<td>' + esc(statOf(en, 'wins')) + '</td>' +
-          '<td>' + esc(statOf(en, 'ties')) + '</td>' +
-          '<td>' + esc(statOf(en, 'losses')) + '</td>' +
-          '<td>' + esc(statOf(en, 'pointDifferential')) + '</td>' +
-          '<td class="pts">' + esc(statOf(en, 'points')) + '</td>' +
-          '</tr>';
+        var cls = ((i < 2 ? 'adv' : '') + (r.live ? ' live' : '')).trim();
+        var gd = (r.s.GD > 0 ? '+' : '') + r.s.GD;
+        return '<tr' + (cls ? ' class="' + cls + '"' : '') + '>' +
+          '<td class="tm"><div class="teamcell"><span class="pos">' + (i + 1) + '</span>' + img + '<span class="nm">' + esc(nm(r.name)) + '</span></div></td>' +
+          '<td>' + r.s.P + '</td><td>' + r.s.W + '</td><td>' + r.s.D + '</td><td>' + r.s.L + '</td><td>' + gd + '</td><td class="pts">' + r.s.Pts + '</td></tr>';
       }).join('');
-
-      return '<div class="group"><h3>' + esc(g.name || 'Group') + '</h3>' +
-        '<table><thead><tr>' +
-        '<th class="tm">Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th>' +
-        '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+      var badge = groupLive ? '<span class="glive"><span class="lb-dot" aria-hidden="true"></span>Live</span>' : '';
+      return '<div class="group' + (groupLive ? ' islive' : '') + '"><h3>' + esc(g.name || 'Group') + badge + '</h3>' +
+        '<table><thead><tr><th class="tm">Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr></thead><tbody>' + trs + '</tbody></table></div>';
     }).join('');
 
     el.innerHTML = html;
-    if (note) note.textContent = groups.length + ' groups';
+    if (note) note.textContent = (liveGroups ? liveGroups + ' live · ' : '') + groups.length + ' groups';
   }
 
   // ---- refresh loop -------------------------------------------------------
@@ -280,23 +287,19 @@
     var start = utcYmd(new Date(now - 36 * 3600 * 1000));
     var end = utcYmd(new Date(now + 60 * 3600 * 1000));
 
-    getJSON(SCOREBOARD + '?dates=' + start + '-' + end)
-      .then(function (json) {
-        var events = parseEvents(json);
-        renderBanner(events);
-        renderScores(events);
-      })
-      .catch(function () {
-        var el = document.getElementById('scoreslist');
-        if (el && !el.querySelector('.score')) el.innerHTML = '<p class="loading">Scores are temporarily unavailable.</p>';
-      });
+    var pScores = getJSON(SCOREBOARD + '?dates=' + start + '-' + end).then(function (json) { return parseEvents(json); });
+    pScores.then(function (events) { renderBanner(events); renderScores(events); }).catch(function () {
+      var el = document.getElementById('scoreslist');
+      if (el && !el.querySelector('.score')) el.innerHTML = '<p class="loading">Scores are temporarily unavailable.</p>';
+    });
 
-    getJSON(STANDINGS)
-      .then(renderStandings)
-      .catch(function () {
-        var el = document.getElementById('standingsgrid');
-        if (el && !el.querySelector('.group')) el.innerHTML = '<p class="loading">Standings are temporarily unavailable.</p>';
-      });
+    // Standings re-render with the live games folded in (provisional points).
+    Promise.all([getJSON(STANDINGS), pScores.catch(function () { return []; })]).then(function (res) {
+      renderStandings(res[0], res[1]);
+    }).catch(function () {
+      var el = document.getElementById('standingsgrid');
+      if (el && !el.querySelector('.group')) el.innerHTML = '<p class="loading">Standings are temporarily unavailable.</p>';
+    });
   }
 
   refresh();
