@@ -51,6 +51,14 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
 .kit .t{position:absolute;left:0;right:0;bottom:0;height:13px}
 .kit.on{border-color:var(--amber);box-shadow:0 0 0 2px var(--amber)}
 .kitlabel{font-size:12px;color:var(--muted);margin:7px 0 0;min-height:14px}
+.livestage{width:100%;max-width:720px}
+.livefeed{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.lvempty{grid-column:1/-1;color:var(--muted);font-size:14px;text-align:center;padding:60px 20px;border:1px dashed var(--line);border-radius:14px}
+.lvtile{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#0E1116}
+.lvtile canvas{width:100%;display:block}
+.lvtile .meta{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;font-size:13px;color:var(--muted)}
+.lvtile .meta b{color:var(--ink);font-weight:600}
+.lvtile .meta a{color:var(--amber);text-decoration:none;font-weight:700;white-space:nowrap;cursor:pointer}
 .dl{width:100%;margin-top:8px;padding:15px;border-radius:12px;border:0;background:var(--amber);color:#11161F;font-weight:800;font-family:"Space Grotesk";font-size:16px;letter-spacing:.3px;cursor:pointer}
 .dl:active{transform:translateY(1px)}
 .status{margin-top:12px;font-size:13px;color:var(--muted);min-height:18px;text-align:center}
@@ -85,6 +93,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <button data-type="stats">Stats</button>
         <button data-type="infographic">Fun Stats</button>
         <button data-type="standings">Standings</button>
+        <button data-type="live">Live</button>
       </div>
 
       <!-- result fields (final + half) -->
@@ -144,11 +153,21 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <div class="minfo">Live games show provisional points; the group is flagged LIVE.</div>
       </div>
 
+      <!-- live auto-generator fields -->
+      <div id="liveFields" class="hide">
+        <button type="button" class="dl" id="liveToggle" style="margin:0 0 12px">Start live auto</button>
+        <label class="chk"><input type="checkbox" id="liveAuto"> Auto-download each card as it generates</label>
+        <div class="minfo" id="livestatus">Idle. When started, polls ESPN (~30s while a match is live or near kickoff) and builds the matching card on each event: kickoff to Who Wins, a goal to Goal, halftime to Half, full time to Final. Generated for you to review and post, never auto-posted.</div>
+      </div>
+
       <button class="dl" id="dl">Download PNG (1080x1080)</button>
       <div class="status" id="status">Preview updates live.</div>
     </div>
 
-    <div class="preview"><div class="stage" id="stage"><canvas id="cv" width="2160" height="2160" aria-label="card preview"></canvas></div></div>
+    <div class="preview">
+      <div class="stage" id="stage"><canvas id="cv" width="2160" height="2160" aria-label="card preview"></canvas></div>
+      <div class="livestage" id="livestage" hidden><div class="livefeed" id="livefeed"><div class="lvempty">Press <b>Start live auto</b>. Cards appear here as goals, halftime, full time and upcoming fixtures are detected.</div></div></div>
+    </div>
   </div>
 </div>
 
@@ -187,6 +206,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       wire(); draw();
       var demo=new URLSearchParams(location.search).get("demo");
       if(demo){ var db=document.querySelector('#seg button[data-type="'+demo+'"]'); if(db) db.click(); }
+      if(new URLSearchParams(location.search).get("live")){ var lb=document.querySelector('#seg button[data-type="live"]'); if(lb){ lb.click(); liveToggle(); } }
     });
     });
   }
@@ -412,14 +432,127 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     }).catch(function(e){ statusEl.textContent="Standings load failed: "+e; });
   }
 
+  // ---- LIVE auto-generator -------------------------------------------------
+  // ESPN's public API is poll-only (no push); we poll the scoreboard, diff each
+  // event against the prior snapshot, and on a transition build the matching card
+  // for review. Adaptive cadence: ~30s while a match is live/imminent, else ~5min.
+  var liveOn=false, liveSeeding=false, liveTimer=null, liveSnap={}, liveSeen={};
+  function liveStatus(m){ var el=document.getElementById("livestatus"); if(el) el.textContent=m; }
+  function teamName(espn){ var c=canon(espn); for(var i=0;i<TEAMS.length;i++){ if(canon(TEAMS[i].name)===c) return TEAMS[i].name; } return espn; }
+  function surname(full){ var a=String(full||"").trim().split(/\s+/); return a.length>1?a.slice(1).join(" "):(a[0]||""); }
+  function isHalf(ev){ return ev.shortDetail==="HT" || /halftime|half time/i.test(ev.detail+" "+ev.shortDetail); }
+  function parseLiveEvents(j){
+    return ((j&&j.events)||[]).map(function(e){
+      var comp=(e.competitions||[])[0]||{}, t=(comp.status||{}).type||{}, cs=comp.competitors||[];
+      function side(ha){ for(var i=0;i<cs.length;i++){ if(cs[i].homeAway===ha) return cs[i]; } return {}; }
+      function tm(c){ var x=c.team||{}, s=c.score, n=(s!=null&&s!=="")?parseInt(s,10):null; return {name:x.displayName||"", score:isFinite(n)?n:null}; }
+      var iso=e.date||comp.date;
+      return {id:e.id||comp.id, iso:iso, date:new Date(iso), state:t.state||"pre", completed:!!t.completed, detail:t.detail||"", shortDetail:t.shortDetail||"", home:tm(side("home")), away:tm(side("away"))};
+    }).filter(function(ev){ return ev.id && ev.iso && !isNaN(ev.date.getTime()); });
+  }
+  function vsParams(ev){
+    return {an:teamName(ev.home.name), ac:teamCode(ev.home.name), acolor:teamColor(ev.home.name),
+            bn:teamName(ev.away.name), bc:teamCode(ev.away.name), bcolor:teamColor(ev.away.name),
+            hg:String(ev.home.score==null?0:ev.home.score), ag:String(ev.away.score==null?0:ev.away.score)};
+  }
+  function emitVs(ev, cardType, extra, tag){ var p=vsParams(ev); for(var k in extra) p[k]=extra[k]; addTile(cardType, p, tag, ev.home.name+" v "+ev.away.name); }
+  function emitGoal(ev, sideScored){
+    var scoredName=sideScored==="home"?ev.home.name:ev.away.name, oppName=sideScored==="home"?ev.away.name:ev.home.name;
+    var base={team:teamName(scoredName), code:teamCode(scoredName), tc:teamColor(scoredName)||"#1E9B4B",
+              score:(ev.home.score==null?0:ev.home.score)+"-"+(ev.away.score==null?0:ev.away.score), vs:teamCode(oppName),
+              home:sideScored==="home"?"1":"0", tag:"Live"};
+    fetch(ESPN+"summary?event="+ev.id,{cache:"no-store"}).then(function(r){return r.json();}).then(function(sm){
+      var sc=lastScorer(sm, scoredName); if(sc){ base.scorer=surname(sc.scorer); if(sc.min) base.min=sc.min; }
+      addTile("goal", base, "Goal", teamName(scoredName)+(base.scorer?" · "+base.scorer:""));
+    }).catch(function(){ addTile("goal", base, "Goal", teamName(scoredName)); });
+  }
+  function lastScorer(sm, scoredName){
+    var plays=(sm&&(sm.scoringPlays||sm.keyEvents))||[], c=canon(scoredName), best=null;
+    plays.forEach(function(pl){
+      var t=((pl.team||{}).displayName)||((pl.team||{}).name)||"";
+      if(canon(t)!==c) return;
+      var who=""; if(pl.athletesInvolved&&pl.athletesInvolved[0]) who=pl.athletesInvolved[0].displayName||"";
+      else if(pl.participants&&pl.participants[0]&&pl.participants[0].athlete) who=pl.participants[0].athlete.displayName||"";
+      var min=(pl.clock&&pl.clock.displayValue)||pl.time||"";
+      best={scorer:who, min:min};
+    });
+    return best;
+  }
+  // seed=true on the first poll after Start: record existing state silently (mark
+  // already-final / already-HT as seen, no card) so we only emit from the NEXT
+  // change on. Who Wins is forward-looking, so it still fires on the seed pass.
+  function detectTransitions(evs, seed){
+    evs.forEach(function(ev){
+      var prev=liveSnap[ev.id];
+      var hs=ev.home.score==null?0:ev.home.score, as=ev.away.score==null?0:ev.away.score;
+      if(ev.state==="pre"){
+        var mins=(ev.date.getTime()-Date.now())/60000;
+        if(mins>0 && mins<360 && !liveSeen[ev.id+":ww"]){ liveSeen[ev.id+":ww"]=1; emitVs(ev,"whowins",{},"Who Wins"); }
+      } else if(ev.state==="in"){
+        if(prev && prev.state==="in"){
+          if(hs>prev.home) emitGoal(ev,"home");
+          if(as>prev.away) emitGoal(ev,"away");
+        }
+        if(isHalf(ev) && !liveSeen[ev.id+":ht"]){ liveSeen[ev.id+":ht"]=1; if(!seed) emitVs(ev,"half",{label:"Half Time",lc:"#FFC400"},"Half"); }
+      } else if(ev.state==="post"||ev.completed){
+        if(!liveSeen[ev.id+":ft"]){ liveSeen[ev.id+":ft"]=1; if(!seed) emitVs(ev,"final",{label:"Full Time"},"Final"); }
+      }
+      liveSnap[ev.id]={state:ev.state, home:hs, away:as};
+    });
+  }
+  function addTile(cardType, params, kind, label){
+    var feed=document.getElementById("livefeed"); if(!feed) return;
+    var empty=feed.querySelector(".lvempty"); if(empty) empty.remove();
+    var tile=document.createElement("div"); tile.className="lvtile";
+    var c=document.createElement("canvas"); tile.appendChild(c);
+    var meta=document.createElement("div"); meta.className="meta";
+    var s=document.createElement("span"); s.innerHTML="<b>"+kind+"</b> · "+label;
+    var a=document.createElement("a"); a.textContent="Download"; meta.appendChild(s); meta.appendChild(a); tile.appendChild(meta);
+    feed.insertBefore(tile, feed.firstChild);
+    window.SportacleRender.renderTo(c, cardType, params, 1);
+    a.addEventListener("click", function(){
+      var big=document.createElement("canvas");
+      window.SportacleRender.renderTo(big, cardType, params, 2).then(function(){
+        big.toBlob(function(b){ if(!b) return; var u=URL.createObjectURL(b), dn=document.createElement("a");
+          dn.href=u; dn.download="sportacle-live-"+cardType+"-"+String(Date.now()).slice(-6)+".png";
+          document.body.appendChild(dn); dn.click(); dn.remove(); setTimeout(function(){URL.revokeObjectURL(u);},1500); });
+      });
+    });
+    while(feed.children.length>12) feed.removeChild(feed.lastChild);
+    if(document.getElementById("liveAuto").checked) a.click();
+  }
+  function livePoll(){
+    if(!liveOn) return Promise.resolve();
+    var now=Date.now(), start=ymdU(now-36*3600*1000), end=ymdU(now+60*3600*1000);
+    return fetch(ESPN+"scoreboard?dates="+start+"-"+end,{cache:"no-store"}).then(function(r){return r.json();}).then(function(j){
+      var evs=parseLiveEvents(j); detectTransitions(evs, liveSeeding); liveSeeding=false; scheduleNextPoll(evs);
+    }).catch(function(){ liveStatus("ESPN momentarily unavailable; retrying."); scheduleNextPoll([]); });
+  }
+  function scheduleNextPoll(evs){
+    if(!liveOn) return;
+    var liveN=evs.filter(function(e){return e.state==="in";}).length;
+    var soon=evs.some(function(e){return e.state==="pre" && (e.date.getTime()-Date.now())<15*60000;});
+    var ms=(liveN||soon)?30000:300000;
+    liveStatus((liveN?liveN+" live · ":"")+"watching "+evs.length+" fixtures · polling every "+(ms/1000)+"s");
+    if(liveTimer) clearTimeout(liveTimer); liveTimer=setTimeout(livePoll, ms);
+  }
+  function liveToggle(){
+    liveOn=!liveOn;
+    var btn=document.getElementById("liveToggle");
+    if(liveOn){ btn.textContent="Stop live auto"; liveSnap={}; liveSeen={}; liveSeeding=true; liveStatus("Watching… seeding current match state (cards generate from the next change on)."); livePoll(); }
+    else { btn.textContent="Start live auto"; if(liveTimer){ clearTimeout(liveTimer); liveTimer=null; } liveStatus("Stopped."); }
+  }
+
   // Native canvas render = the preview AND (re-run) the download. No iframe, no
   // html-to-image, no foreignObject, no network at capture: bulletproof.
   function render(){
+    if(type==="live") return Promise.resolve();
     if(type==="infographic") return window.SportacleRender.renderTo(cv,"infographic", lastInfoParams||{rows:[]}, 2);
     if(type==="standings") return window.SportacleRender.renderTo(cv,"standings", lastStandParams||{rows:[]}, 2);
     return window.SportacleRender.renderTo(cv, rtype(), buildParams(), 2);
   }
   function draw(){
+    if(type==="live"){ return; }
     if(type==="infographic"){ drawInfographic(); return; }
     if(type==="standings"){ drawStandingsCard(); return; }
     render().then(function(){ if(!busy) statusEl.textContent="Preview updated."; }).catch(function(e){ statusEl.textContent="Render error: "+e; });
@@ -430,14 +563,19 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       b.addEventListener("click",function(){
         document.querySelectorAll("#seg button").forEach(function(x){x.classList.remove("on");});
         b.classList.add("on"); type=b.getAttribute("data-type");
-        document.getElementById("resultFields").classList.toggle("hide", type==="goal"||type==="stats"||type==="infographic"||type==="standings");
+        document.getElementById("resultFields").classList.toggle("hide", type==="goal"||type==="stats"||type==="infographic"||type==="standings"||type==="live");
         document.getElementById("goalFields").classList.toggle("hide", type!=="goal");
         document.getElementById("statsFields").classList.toggle("hide", type!=="stats");
         document.getElementById("infographicFields").classList.toggle("hide", type!=="infographic");
         document.getElementById("standingsCardFields").classList.toggle("hide", type!=="standings");
+        document.getElementById("liveFields").classList.toggle("hide", type!=="live");
         document.getElementById("scoreRow").classList.toggle("hide", type==="whowins");
+        document.getElementById("stage").hidden=(type==="live");
+        document.getElementById("livestage").hidden=(type!=="live");
+        document.getElementById("dl").style.display=(type==="live")?"none":"";
         if(type==="goal" && !goalSquad){ loadGoalSquad(); }
-        if(type==="stats" && !statsData){ loadStatsTeam(); } else { update(); }
+        else if(type==="stats" && !statsData){ loadStatsTeam(); }
+        else if(type!=="live"){ update(); }
       });
     });
     document.querySelectorAll(".controls select, .controls input").forEach(function(el){
@@ -445,6 +583,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     });
     document.getElementById("metric").addEventListener("change", function(){ fillInfoCopy(); update(); });
     document.getElementById("infoReset").addEventListener("click", function(){ fillInfoCopy(); update(); });
+    document.getElementById("liveToggle").addEventListener("click", liveToggle);
     document.getElementById("steam").addEventListener("change", function(){ syncStatsKits(); loadStatsTeam(); });
     document.getElementById("gteam").addEventListener("change", function(){ syncGoalKits(); if(type==="goal") loadGoalSquad(); });
     document.getElementById("gplayer").addEventListener("change", function(){
