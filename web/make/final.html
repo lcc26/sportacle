@@ -13,14 +13,14 @@ html,body{width:1080px;height:1080px;overflow:hidden;background:#fff}
 body{font-family:var(--ui);-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
 .card{position:relative;width:1080px;height:1080px;overflow:hidden;background:#fff}
 .half{position:absolute;top:0;bottom:0;width:1080px;height:1080px;overflow:hidden}
-.left{clip-path:polygon(0 0, 614px 0, 466px 1080px, 0 1080px);background:var(--teamA)}
+.left{clip-path:polygon(0 0, 56.852% 0, 43.148% 100%, 0 100%);background:var(--teamA)}
 .left .flag{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:100% 50%;filter:saturate(1.12) contrast(1.04)}
-.right{clip-path:polygon(614px 0, 1080px 0, 1080px 1080px, 466px 1080px);background:var(--teamB)}
+.right{clip-path:polygon(56.852% 0, 100% 0, 100% 100%, 43.148% 100%);background:var(--teamB)}
 .right .flag{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:0% 50%;filter:saturate(1.10) contrast(1.04)}
 .scrim-t{position:absolute;top:0;left:0;right:0;height:330px;z-index:3;background:linear-gradient(180deg,rgba(0,0,0,.66) 0%,rgba(0,0,0,.26) 58%,rgba(0,0,0,0) 100%)}
 .scrim-b{position:absolute;bottom:0;left:0;right:0;height:300px;z-index:3;background:linear-gradient(0deg,rgba(0,0,0,.64) 0%,rgba(0,0,0,.26) 52%,rgba(0,0,0,0) 100%)}
-.seam{position:absolute;inset:0;z-index:6;pointer-events:none;background:#fff;clip-path:polygon(607px 0, 621px 0, 473px 1080px, 459px 1080px)}
-.seam-edge{position:absolute;inset:0;z-index:5;pointer-events:none;background:linear-gradient(180deg,var(--teamA),var(--teamB));clip-path:polygon(601px 0, 627px 0, 479px 1080px, 453px 1080px);opacity:.9}
+.seam{position:absolute;inset:0;z-index:6;pointer-events:none;background:#fff;clip-path:polygon(56.204% 0, 57.5% 0, 43.796% 100%, 42.5% 100%)}
+.seam-edge{position:absolute;inset:0;z-index:5;pointer-events:none;background:linear-gradient(180deg,var(--teamA),var(--teamB));clip-path:polygon(55.648% 0, 58.056% 0, 44.352% 100%, 41.944% 100%);opacity:.9}
 .ft{position:absolute;top:54px;left:50%;transform:translateX(-50%);z-index:24;font-family:var(--ui);font-weight:800;font-size:30px;letter-spacing:9px;text-transform:uppercase;color:var(--ink);background:#fff;padding:11px 30px 9px;border-radius:999px;box-shadow:0 12px 30px rgba(0,0,0,.3)}
 .names{position:absolute;top:150px;left:0;right:0;z-index:20;display:flex;justify-content:space-between;padding:0 72px}
 .team{width:400px}.team.b{text-align:left}.team.k{text-align:right}
@@ -85,22 +85,47 @@ body{font-family:var(--ui);-webkit-font-smoothing:antialiased;text-rendering:geo
   function exportCard(opts){
     var card=document.querySelector(".card");
     var pr=(opts&&opts.pixelRatio)||2;
-    function imgsReady(){
-      var imgs=[].slice.call(card.querySelectorAll("img"));
-      return Promise.all(imgs.map(function(im){
-        if(im.complete&&im.naturalWidth>0)return null;
-        return new Promise(function(r){im.addEventListener("load",r,{once:true});im.addEventListener("error",r,{once:true});});
-      }));
+    // Robust flag fix: inline EVERY <img> as a data: URI BEFORE toPng by drawing the
+    // ALREADY-DECODED on-page bitmap to a canvas (ZERO network at export), so
+    // html-to-image never re-fetches a flag (the old cacheBust:true forced a cold-cache
+    // refetch that could reject the whole promise -> no file, or cache an empty
+    // placeholder -> flagless card). /flags/* is same-origin so the canvas is untainted.
+    // On failure we leave the original src (imagePlaceholder covers it). Runs ONLY in the
+    // export path, never on normal load (make.py uses Chrome --screenshot, never calls this).
+    function decoded(im){
+      if(im.complete&&im.naturalWidth>0) return Promise.resolve();
+      return new Promise(function(r){im.addEventListener("load",r,{once:true});im.addEventListener("error",r,{once:true});});
     }
-    function snap(){ return window.htmlToImage.toPng(card,{width:1080,height:1080,pixelRatio:pr,cacheBust:true}); }
-    // Wait for fonts + flag images to finish, then warm the rasterizer's cache with
-    // a discarded pass before the real capture (first pass can miss just-loaded images).
-    return Promise.all([document.fonts.ready,imgsReady()]).then(snap).then(snap);
+    function inlineImg(im){
+      return decoded(im).then(function(){
+        if(/^data:/.test(im.src)||!im.naturalWidth) return;
+        try{
+          var c=document.createElement("canvas");
+          c.width=im.naturalWidth;c.height=im.naturalHeight;
+          c.getContext("2d").drawImage(im,0,0);
+          im.src=c.toDataURL("image/png");
+        }catch(e){/* leave original src; onImageErrorHandler covers it */}
+      });
+    }
+    function embedAll(){
+      return Promise.all([].slice.call(card.querySelectorAll("img")).map(inlineImg));
+    }
+    function snap(){
+      return window.htmlToImage.toPng(card,{
+        width:1080,height:1080,pixelRatio:pr,
+        imagePlaceholder:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        onImageErrorHandler:function(){}
+      });
+    }
+    // Wait for fonts + inline all flags to data: URIs, then capture ONCE (no warm-up
+    // double pass needed once images are local data URIs; keep document.fonts.ready).
+    return Promise.all([document.fonts.ready,embedAll()]).then(snap);
   }
   window.addEventListener("message",function(e){
     if(!e.data||e.data.type!=="export")return;
-    exportCard(e.data).then(function(u){e.source.postMessage({type:"exported",dataUrl:u},"*");})
-      .catch(function(err){e.source.postMessage({type:"export-error",error:String(err)},"*");});
+    var origin=e.origin&&e.origin!=="null"?e.origin:"*";
+    exportCard(e.data).then(function(u){e.source.postMessage({type:"exported",dataUrl:u},origin);})
+      .catch(function(err){e.source.postMessage({type:"export-error",error:(err&&err.message)||String(err)},origin);});
   });
   if(new URLSearchParams(location.search).get("export")==="1"){
     var ta=document.createElement("textarea");ta.id="exp";ta.style.cssText="position:fixed;left:-99999px;top:0;width:10px;height:10px";

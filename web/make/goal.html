@@ -13,7 +13,7 @@ html,body{width:1080px;height:1080px;overflow:hidden;background:#000}
 body{font-family:var(--ui);-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
 .card{position:relative;width:1080px;height:1080px;overflow:hidden;background:var(--team)}
 .flag{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(1.12) contrast(1.03)}
-.tint{position:absolute;inset:0;z-index:2;background:var(--team);mix-blend-mode:multiply;opacity:.42}
+.tint{position:absolute;inset:0;z-index:2;background:var(--team);opacity:.5}
 .vign{position:absolute;inset:0;z-index:3;background:radial-gradient(120% 90% at 50% 28%, rgba(0,0,0,0) 38%, rgba(0,0,0,.55) 100%)}
 .shade{position:absolute;inset:0;z-index:3;background:linear-gradient(180deg, rgba(0,0,0,.5) 0%, rgba(0,0,0,0) 26%, rgba(0,0,0,0) 52%, rgba(0,0,0,.82) 100%)}
 .blade{position:absolute;top:0;left:0;width:1080px;height:1080px;z-index:4;pointer-events:none;
@@ -86,22 +86,47 @@ body{font-family:var(--ui);-webkit-font-smoothing:antialiased;text-rendering:geo
   function exportCard(opts){
     var card=document.querySelector(".card");
     var pr=(opts&&opts.pixelRatio)||2;
-    function imgsReady(){
-      var imgs=[].slice.call(card.querySelectorAll("img"));
-      return Promise.all(imgs.map(function(im){
-        if(im.complete&&im.naturalWidth>0)return null;
-        return new Promise(function(r){im.addEventListener("load",r,{once:true});im.addEventListener("error",r,{once:true});});
-      }));
+    // Robust flag fix: inline EVERY <img> as a data: URI BEFORE toPng by drawing the
+    // ALREADY-DECODED on-page bitmap to a canvas (ZERO network at export), so
+    // html-to-image never re-fetches a flag (the old cacheBust:true forced a cold-cache
+    // refetch that could reject the whole promise -> no file, or cache an empty
+    // placeholder -> flagless card). /flags/* is same-origin so the canvas is untainted.
+    // On failure we leave the original src (imagePlaceholder covers it). Runs ONLY in the
+    // export path, never on normal load (make.py uses Chrome --screenshot, never calls this).
+    function decoded(im){
+      if(im.complete&&im.naturalWidth>0) return Promise.resolve();
+      return new Promise(function(r){im.addEventListener("load",r,{once:true});im.addEventListener("error",r,{once:true});});
     }
-    function snap(){ return window.htmlToImage.toPng(card,{width:1080,height:1080,pixelRatio:pr,cacheBust:true}); }
-    // Wait for fonts + flag images to finish, then warm the rasterizer's cache with
-    // a discarded pass before the real capture (first pass can miss just-loaded images).
-    return Promise.all([document.fonts.ready,imgsReady()]).then(snap).then(snap);
+    function inlineImg(im){
+      return decoded(im).then(function(){
+        if(/^data:/.test(im.src)||!im.naturalWidth) return;
+        try{
+          var c=document.createElement("canvas");
+          c.width=im.naturalWidth;c.height=im.naturalHeight;
+          c.getContext("2d").drawImage(im,0,0);
+          im.src=c.toDataURL("image/png");
+        }catch(e){/* leave original src; onImageErrorHandler covers it */}
+      });
+    }
+    function embedAll(){
+      return Promise.all([].slice.call(card.querySelectorAll("img")).map(inlineImg));
+    }
+    function snap(){
+      return window.htmlToImage.toPng(card,{
+        width:1080,height:1080,pixelRatio:pr,
+        imagePlaceholder:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        onImageErrorHandler:function(){}
+      });
+    }
+    // Wait for fonts + inline all flags to data: URIs, then capture ONCE (no warm-up
+    // double pass needed once images are local data URIs; keep document.fonts.ready).
+    return Promise.all([document.fonts.ready,embedAll()]).then(snap);
   }
   window.addEventListener("message",function(e){
     if(!e.data||e.data.type!=="export")return;
-    exportCard(e.data).then(function(u){e.source.postMessage({type:"exported",dataUrl:u},"*");})
-      .catch(function(err){e.source.postMessage({type:"export-error",error:String(err)},"*");});
+    var origin=e.origin&&e.origin!=="null"?e.origin:"*";
+    exportCard(e.data).then(function(u){e.source.postMessage({type:"exported",dataUrl:u},origin);})
+      .catch(function(err){e.source.postMessage({type:"export-error",error:(err&&err.message)||String(err)},origin);});
   });
   if(new URLSearchParams(location.search).get("export")==="1"){
     var ta=document.createElement("textarea");ta.id="exp";ta.style.cssText="position:fixed;left:-99999px;top:0;width:10px;height:10px";
