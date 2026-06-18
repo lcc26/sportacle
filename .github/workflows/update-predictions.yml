@@ -18,4 +18,20 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "compile check"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run the engine
+        run: python3 engine/run.py
+
+      - name: Deploy web to Netlify production
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          npx --yes netlify-cli@latest deploy --dir=web --prod --site "$NETLIFY_SITE_ID" --message "auto refresh: live projections"
