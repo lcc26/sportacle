@@ -100,6 +100,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <button data-type="infographic">Fun Stats</button>
         <button data-type="standings">Standings</button>
         <button data-type="roast">Roast</button>
+        <button data-type="quote">Quote</button>
         <button data-type="definition">Definition</button>
         <button data-type="cooked">Cooked</button>
         <button data-type="live">Live</button>
@@ -174,6 +175,16 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <button type="button" class="linkbtn" id="roastReset">Reset copy to this verdict's default</button>
       </div>
 
+      <!-- quote card fields -->
+      <div id="quoteFields" class="hide">
+        <div class="field"><label>Team</label><select id="qteam"></select></div>
+        <div class="field"><label>Player (optional, adds a photo when one exists)</label><select id="qplayer"><option value="">Flag only</option></select></div>
+        <div class="field"><label>Quote</label><input id="qquote" type="text" maxlength="90" placeholder="The line"></div>
+        <div class="field"><label>Attribution</label><input id="qattr" type="text" maxlength="32" placeholder="Team, player, or the bench"></div>
+        <div class="field"><label>Context (optional)</label><input id="qcontext" type="text" maxlength="92" placeholder="The savage one-liner under it"></div>
+        <div class="field"><label>Photo URL (optional)</label><input id="qphoto" type="text" placeholder="auto from player, or paste an image url"></div>
+      </div>
+
       <!-- definition / knowledge-panel spoof fields -->
       <div id="defFields" class="hide">
         <div class="field"><label>Preset</label><select id="dpreset"></select></div>
@@ -236,7 +247,8 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     }).then(function(){
     return fetch("/make/teams.json").then(function(r){return r.json();}).then(function(d){
       TEAMS=d;
-      ["home","away","gteam","gvs","steam","rteamA","rteamB","dteamA","dteamB"].forEach(function(id){ fillSelect(id, id==="gvs"); });
+      ["home","away","gteam","gvs","steam","rteamA","rteamB","dteamA","dteamB","qteam"].forEach(function(id){ fillSelect(id, id==="gvs"); });
+      setSel("qteam","Germany"); document.getElementById("qquote").value="We treated it like a friendly."; document.getElementById("qattr").value="Germany"; document.getElementById("qcontext").value="Sportacle still has them 68% to win the group.";
       setSel("home","England"); setSel("away","Croatia");
       setSel("gteam","England"); setSel("gvs","Croatia"); setSel("steam","England");
       setSel("rteamA","South Africa"); setSel("rteamB","Czechia");
@@ -339,7 +351,30 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     document.getElementById("ddef2").value=String(P.def2||"").replace("%s", defScoreline());
     document.getElementById("dsee").value=P.seeAlso||"";
   }
+  var quoteSquad=null;
+  function loadQuoteSquad(){
+    var tname=opt("qteam").value; if(!tname) return;
+    var pl=document.getElementById("qplayer"); pl.innerHTML='<option value="">Loading…</option>';
+    fetchSquad(tname).then(function(sq){ quoteSquad=sq.players;
+      pl.innerHTML='<option value="">Flag only</option>'+sq.players.map(function(q,i){return '<option value="'+i+'">'+q.athlete.displayName+'</option>';}).join("");
+    }).catch(function(){ pl.innerHTML='<option value="">Flag only</option>'; });
+  }
+  function quotePlayerPick(){
+    var idx=opt("qplayer").value;
+    if(idx==="" || !quoteSquad){ document.getElementById("qphoto").value=""; update(); return; }
+    var q=quoteSquad[parseInt(idx,10)]; if(!q) return;
+    document.getElementById("qattr").value=q.athlete.displayName||"";
+    document.getElementById("qphoto").value=q.athlete.id?("https://a.espncdn.com/i/headshots/soccer/players/full/"+q.athlete.id+".png"):"";
+    update();
+  }
   function buildParams(){
+    if(type==="quote"){
+      var qt=opt("qteam");
+      var qp={team:qt.value||"", code:qt.getAttribute("data-code")||"", color:qt.getAttribute("data-color")||"#1E9B4B",
+              quote:val("qquote"), attribution:val("qattr")||qt.value||"", context:val("qcontext")};
+      if(val("qphoto")) qp.photo=val("qphoto");
+      return qp;
+    }
     if(type==="definition"){
       var da=opt("dteamA"), db=opt("dteamB");
       return {an:da.value||"", ac:da.getAttribute("data-code")||"", acolor:da.getAttribute("data-color")||"#1E9B4B",
@@ -405,7 +440,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(val("rhead")) pp.label=val("rhead");
     return pp;
   }
-  function rtype(){ return type==="goal"?"goal":type==="whowins"?"whowins":type==="stats"?"stats":type==="roast"?"verdict":type==="definition"?"panel":"final"; }
+  function rtype(){ return type==="goal"?"goal":type==="whowins"?"whowins":type==="stats"?"stats":type==="roast"?"verdict":type==="definition"?"panel":type==="quote"?"quotecard":"final"; }
   var statusEl=document.getElementById("status");
 
   // ---- Stats: pull a team's last completed match + per-player stats from ESPN ----
@@ -720,6 +755,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         document.getElementById("standingsCardFields").classList.toggle("hide", type!=="standings");
         document.getElementById("roastFields").classList.toggle("hide", type!=="roast");
         document.getElementById("defFields").classList.toggle("hide", type!=="definition");
+        document.getElementById("quoteFields").classList.toggle("hide", type!=="quote");
         document.getElementById("cookedFields").classList.toggle("hide", type!=="cooked");
         document.getElementById("liveFields").classList.toggle("hide", type!=="live");
         document.getElementById("scoreRow").classList.toggle("hide", type==="whowins");
@@ -728,6 +764,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         document.getElementById("dl").style.display=(type==="live")?"none":"";
         if(type==="goal" && !goalSquad){ loadGoalSquad(); }
         else if(type==="stats" && !statsData){ loadStatsTeam(); }
+        else if(type==="quote" && !quoteSquad){ loadQuoteSquad(); update(); }
         else if(type!=="live"){ update(); }
       });
     });
@@ -739,6 +776,8 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     document.getElementById("verdict").addEventListener("change", function(){ fillVerdictCopy(); update(); });
     document.getElementById("roastReset").addEventListener("click", function(){ fillVerdictCopy(); update(); });
     document.getElementById("dpreset").addEventListener("change", function(){ fillDefCopy(); update(); });
+    document.getElementById("qteam").addEventListener("change", function(){ quoteSquad=null; loadQuoteSquad(); update(); });
+    document.getElementById("qplayer").addEventListener("change", quotePlayerPick);
     document.getElementById("defReset").addEventListener("click", function(){ fillDefCopy(); update(); });
     document.getElementById("liveToggle").addEventListener("click", liveToggle);
     document.getElementById("steam").addEventListener("change", function(){ syncStatsKits(); loadStatsTeam(); });
@@ -768,6 +807,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(type==="stats"){ return "sportacle-stats-"+(opt("steam").getAttribute("data-code")||"x")+"-"+ts+".png"; }
     if(type==="roast"){ return "sportacle-roast-"+(opt("verdict").value||"x")+"-"+ts+".png"; }
     if(type==="definition"){ return "sportacle-def-"+slug(val("dword")||"word")+"-"+ts+".png"; }
+    if(type==="quote"){ return "sportacle-quote-"+(opt("qteam").getAttribute("data-code")||"x")+"-"+ts+".png"; }
     if(type==="cooked"){ return "sportacle-cooked-"+ts+".png"; }
     return "sportacle-"+type+"-"+(opt("home").getAttribute("data-code")||"x")+"-"+(opt("away").getAttribute("data-code")||"x")+"-"+(val("hg")||0)+"-"+(val("ag")||0)+"-"+ts+".png";
   }

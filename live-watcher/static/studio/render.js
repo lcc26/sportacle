@@ -25,6 +25,20 @@
     flagCache[code] = p;
     return p;
   }
+  var imgCache = {};
+  function loadImg(src) {
+    if (!src) return Promise.resolve(null);
+    if (imgCache[src]) return imgCache[src];
+    var p = new Promise(function (res) {
+      var img = new Image();
+      img.crossOrigin = 'anonymous';   // espncdn sends ACAO *, so the canvas stays untainted
+      img.onload = function () { res(img); };
+      img.onerror = function () { res(null); };
+      img.src = src;
+    });
+    imgCache[src] = p;
+    return p;
+  }
   var fontsReady = null;
   function ensureFonts() {
     if (fontsReady) return fontsReady;
@@ -311,6 +325,47 @@
     fifaRibbon(ctx, W - 10, 10);
     ctx.font = font('700', 36, KH); ls(ctx, 2); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     var t1 = 'SPORT', t2 = 'ACLE', b1 = ctx.measureText(t1).width, b2 = ctx.measureText(t2).width, fx = 540 - (b1 + b2) / 2, fy = W - 48;
+    ctx.fillStyle = INKB; ctx.fillText(t1, fx, fy); ctx.fillStyle = RED; ctx.fillText(t2, fx + b1, fy); ls(ctx, 0);
+  }
+  // ---- QUOTE CARD (ESPN/B-R style: hero + oversized quote + attribution + context) ----
+  function renderQuoteCard(ctx, p, F) {
+    var CREAM = '#F4F2EB', INKB = '#14171C', RED = '#C8102E', col = p.color || '#1E9B4B';
+    var heroH = 632;
+    // hero: a player photo if one was supplied + loaded, else the flag (flag-forward default)
+    ctx.fillStyle = col; ctx.fillRect(0, 0, W, heroH);
+    var hero = (F.photo && F.photo.naturalWidth) ? F.photo : F.flag;
+    if (hero) cover(ctx, hero, 0, 0, W, heroH, 0.5, 0.38);
+    ctx.save(); ctx.globalAlpha = (F.photo && F.photo.naturalWidth) ? 0.18 : 0.42; ctx.fillStyle = col; ctx.fillRect(0, 0, W, heroH); ctx.restore();
+    fifaRibbon(ctx, 0, 8);
+    // scrim into the carve + team name
+    var g = ctx.createLinearGradient(0, heroH - 240, 0, heroH); g.addColorStop(0, 'rgba(20,23,28,0)'); g.addColorStop(1, 'rgba(20,23,28,.45)');
+    ctx.fillStyle = g; ctx.fillRect(0, heroH - 240, W, 240);
+    ctx.font = font('800', 44, BR); ls(ctx, 8); ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 3;
+    ctx.fillText(String(p.team || '').toUpperCase(), 64, 100); ctx.restore(); ls(ctx, 0);
+    // carved cream panel
+    ctx.beginPath(); ctx.moveTo(0, heroH); ctx.quadraticCurveTo(540, heroH - 44, W, heroH); ctx.lineTo(W, W); ctx.lineTo(0, W); ctx.closePath();
+    ctx.fillStyle = CREAM; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, heroH); ctx.quadraticCurveTo(540, heroH - 44, W, heroH); ctx.lineWidth = 6; ctx.strokeStyle = RED; ctx.stroke();
+    // quote glyph + bold quote (bottom-anchored block)
+    var fw = fitWrap(ctx, String(p.quote || '').toUpperCase(), '700', 90, KH, 922, 4, 48);
+    var lh = fw.size * 0.85, n = fw.lines.length, lastBase = 902 - (p.context ? 36 : 0), topBase = lastBase - (n - 1) * lh;
+    drawQuoteGlyph(ctx, 70, topBase - fw.size * 0.95, 168, RED, 0.16);
+    ctx.font = font('700', fw.size, KH); ctx.fillStyle = INKB; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    for (var i = 0; i < n; i++) ctx.fillText(fw.lines[i], 80, topBase + i * lh);
+    // attribution
+    ctx.font = font('700', 38, BR); ls(ctx, 3); ctx.fillStyle = col;
+    ctx.fillText(String(p.attribution || p.team || '').toUpperCase(), 82, lastBase + 50); ls(ctx, 0);
+    // context
+    if (p.context) {
+      var cs = fitFont(ctx, String(p.context), '500', 29, BR, 940, 0);
+      ctx.font = font('500', cs, BR); ctx.fillStyle = hexA(INKB, .6);
+      ctx.fillText(String(p.context), 82, lastBase + 92);
+    }
+    // cream footer wordmark
+    fifaRibbon(ctx, W - 10, 10);
+    ctx.font = font('700', 32, KH); ls(ctx, 2); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    var t1 = 'SPORT', t2 = 'ACLE', b1 = ctx.measureText(t1).width, b2 = ctx.measureText(t2).width, fx = W - 64 - b1 - b2, fy = W - 46;
     ctx.fillStyle = INKB; ctx.fillText(t1, fx, fy); ctx.fillStyle = RED; ctx.fillText(t2, fx + b1, fy); ls(ctx, 0);
   }
   function drawScore(ctx, p) {
@@ -657,6 +712,11 @@
       if (type === 'goal') {
         return Promise.all([loadFlag(p.code), loadFlag(p.code), loadFlag(p.vs)]).then(function (f) {
           renderGoal(ctx, p, f[0], f[1], f[2]);
+        });
+      }
+      if (type === 'quotecard') {
+        return Promise.all([loadFlag(p.code), p.photo ? loadImg(p.photo) : Promise.resolve(null)]).then(function (f) {
+          renderQuoteCard(ctx, p, { flag: f[0], photo: f[1] });
         });
       }
       return Promise.all([loadFlag(p.ac), loadFlag(p.bc)]).then(function (f) {
