@@ -146,7 +146,7 @@
   // ---- WHO WILL WIN (upcoming match, engagement) ----
   function renderWhoWins(ctx, p, F) {
     drawVsBg(ctx, p, F);
-    pill(ctx, 540, 80, 'WHO WILL WIN?', {
+    pill(ctx, 540, 80, String(p.headline || 'WHO WILL WIN?').toUpperCase(), {
       font: font('800', 30, BR), lsp: 7, padX: 30, h: 52, bg: '#FFC400', color: INK,
       shadow: { c: 'rgba(0,0,0,.3)', b: 30, oy: 12 }
     });
@@ -233,8 +233,8 @@
     ctx.strokeStyle = '#FFC400'; ctx.lineWidth = 14; ctx.beginPath(); ctx.moveTo(-40, 60); ctx.lineTo(60, -40); ctx.stroke();
     ctx.strokeStyle = '#ED2939'; ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(-40, 110); ctx.lineTo(110, -40); ctx.stroke();
     ctx.restore();
-    // optional scorer jersey (upper-right), generated from the team color
-    if (p.jersey) drawJersey(ctx, 826, 392, 1.04, p.tc, shade(p.tc, 0.58), p.jersey, p.scorer);
+    // optional scorer jersey (upper-right): chosen kit, else team color
+    if (p.jersey) drawJersey(ctx, 826, 392, 1.04, p.kit1 || p.tc, p.kit2 || shade(p.tc, 0.58), p.jersey, p.scorer);
     // tag
     ctx.font = font('800', 26, BR); ls(ctx, 6); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 10; ctx.fillStyle = '#fff';
@@ -245,13 +245,16 @@
     ctx.font = font('800', 46, BR); ls(ctx, 8); ctx.fillStyle = '#fff';
     ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 3;
     ctx.fillText(p.team.toUpperCase(), 64, heroBottom - 300); ctx.restore(); ls(ctx, 0);
-    // GOAL!  (Khand 700 340, "!" amber)
-    ctx.font = font('700', 340, KH); ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    // headline (default GOAL), Khand 700, auto-fit width; amber bang appended unless already punctuated
+    var head = String(p.headline || 'GOAL').toUpperCase();
+    var bang = /[!?.]$/.test(head) ? '' : '!';
+    var hs = 340; ctx.font = font('700', hs, KH);
+    while (ctx.measureText(head + bang).width > W - 120 && hs > 110) { hs -= 10; ctx.font = font('700', hs, KH); }
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
     ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 10;
     var gy = heroBottom - 40;
-    ctx.fillStyle = '#fff'; ctx.fillText('GOAL', 60, gy);
-    var gw = ctx.measureText('GOAL').width;
-    ctx.fillStyle = '#FFC400'; ctx.fillText('!', 60 + gw + 6, gy);
+    ctx.fillStyle = '#fff'; ctx.fillText(head, 60, gy);
+    if (bang) { var gw = ctx.measureText(head).width; ctx.fillStyle = '#FFC400'; ctx.fillText(bang, 60 + gw + 6, gy); }
     ctx.restore();
     // scorer + minute
     if (p.scorer) {
@@ -380,8 +383,8 @@
       });
       top = 210;
     }
-    // jersey hero
-    drawJersey(ctx, 540, top + 230, 1.15, c1, c2, p.jersey, p.player);
+    // jersey hero: chosen kit, else team color
+    drawJersey(ctx, 540, top + 230, 1.15, p.kit1 || c1, p.kit2 || c2, p.jersey, p.player);
     // player name
     var name = String(p.player || 'Player').toUpperCase();
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#fff';
@@ -460,7 +463,7 @@
     var rg = ctx.createRadialGradient(540, 90, 0, 540, 90, 840); rg.addColorStop(0, hexA(accent, 0.16)); rg.addColorStop(1, 'rgba(13,16,22,0)');
     ctx.fillStyle = rg; ctx.fillRect(0, 0, W, W);
     ctx.fillStyle = '#fff'; ctx.font = font('700', 76, KH); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    var title = String(p.group || 'Group').toUpperCase(); ctx.fillText(title, 64, 128);
+    var title = String(p.title || p.group || 'Group').toUpperCase(); ctx.fillText(title, 64, 128);
     if (live) pill(ctx, 64 + ctx.measureText(title).width + 86, 102, 'LIVE', { font: font('800', 26, BR), lsp: 3, padX: 22, h: 46, bg: '#C8102E', color: '#fff' });
     var cols = [['P', 566], ['W', 652], ['D', 738], ['L', 824], ['GD', 930], ['PTS', 1032]];
     ctx.font = font('800', 22, BR); ls(ctx, 1.5); ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
@@ -485,7 +488,7 @@
     ctx.font = font('700', 36, KH); ls(ctx, 3); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     var t1 = 'SPORT', t2 = 'ACLE', bw1 = ctx.measureText(t1).width, bw2 = ctx.measureText(t2).width, fx = 540 - (bw1 + bw2) / 2, fy = W - 52;
     ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.fillText(t1, fx, fy); ctx.fillStyle = accent; ctx.fillText(t2, fx + bw1, fy);
-    ls(ctx, 0); ctx.font = font('700', 17, BR); ls(ctx, 2); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillText('WORLD CUP 2026 · TOP 2 ADVANCE', fx + bw1 + bw2 + 16, fy + 1); ls(ctx, 0);
+    ls(ctx, 0); ctx.font = font('700', 17, BR); ls(ctx, 2); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillText(String(p.footnote || 'WORLD CUP 2026 · TOP 2 ADVANCE').toUpperCase(), fx + bw1 + bw2 + 16, fy + 1); ls(ctx, 0);
   }
 
   // ---- public entry ----

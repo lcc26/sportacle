@@ -45,6 +45,12 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
 .minfo{font-size:12px;color:var(--muted);margin-bottom:6px;min-height:14px}
 .linkbtn{background:none;border:0;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;padding:0;margin-top:-6px}
 .linkbtn:hover{color:var(--ink)}
+.kits{display:flex;gap:8px;flex-wrap:wrap;margin:0}
+.kit{width:46px;height:46px;border-radius:9px;border:2px solid var(--line);cursor:pointer;overflow:hidden;padding:0;position:relative;background:transparent}
+.kit .s{position:absolute;inset:0}
+.kit .t{position:absolute;left:0;right:0;bottom:0;height:13px}
+.kit.on{border-color:var(--amber);box-shadow:0 0 0 2px var(--amber)}
+.kitlabel{font-size:12px;color:var(--muted);margin:7px 0 0;min-height:14px}
 .dl{width:100%;margin-top:8px;padding:15px;border-radius:12px;border:0;background:var(--amber);color:#11161F;font-weight:800;font-family:"Space Grotesk";font-size:16px;letter-spacing:.3px;cursor:pointer}
 .dl:active{transform:translateY(1px)}
 .status{margin-top:12px;font-size:13px;color:var(--muted);min-height:18px;text-align:center}
@@ -89,12 +95,15 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
           <div class="field"><label>Home goals</label><input id="hg" type="number" min="0" max="20" value="0"></div>
           <div class="field"><label>Away goals</label><input id="ag" type="number" min="0" max="20" value="0"></div>
         </div>
+        <div class="field"><label>Headline override (optional)</label><input id="rhead" type="text" maxlength="28" placeholder="blank = Full Time / Who Will Win?"></div>
         <div class="field"><label>Note / prompt (optional)</label><input id="note" type="text" placeholder="e.g. Group L  ·  or a Who-Wins prompt"></div>
       </div>
 
       <!-- goal fields -->
       <div id="goalFields" class="hide">
+        <div class="field"><label>Headline</label><input id="ghead" type="text" maxlength="20" placeholder="GOAL"></div>
         <div class="field"><label>Scoring team</label><select id="gteam"></select></div>
+        <div class="field"><label>Kit</label><div class="kits" id="gkit"></div><div class="kitlabel" id="gkitlabel"></div></div>
         <div class="field"><label>Player (auto-fills scorer + number)</label><select id="gplayer"><option value="">pick a team first</option></select></div>
         <div class="field"><label>Scorer (optional)</label><input id="scorer" type="text" placeholder="e.g. Kane"></div>
         <div class="row">
@@ -111,6 +120,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <div class="field"><label>Team</label><select id="steam"></select></div>
         <div class="field"><label>Player (auto-loaded from last match)</label><select id="splayer"><option value="">Pick a team</option></select></div>
         <label class="chk"><input type="checkbox" id="smotm"> Man of the Match</label>
+        <div class="field"><label>MOTM label</label><input id="smotmlabel" type="text" maxlength="24" placeholder="Man of the Match"></div>
+        <div class="field"><label>Context / eyebrow (optional)</label><input id="sctx" type="text" maxlength="28" placeholder="blank = auto match info"></div>
+        <div class="field"><label>Kit</label><div class="kits" id="skit"></div><div class="kitlabel" id="skitlabel"></div></div>
         <div class="minfo" id="matchinfo"></div>
       </div>
 
@@ -127,6 +139,8 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       <!-- standings card fields -->
       <div id="standingsCardFields" class="hide">
         <div class="field"><label>Group</label><select id="sgroup"></select></div>
+        <div class="field"><label>Title override (optional)</label><input id="stitle" type="text" maxlength="26" placeholder="blank = Group X"></div>
+        <div class="field"><label>Footnote override (optional)</label><input id="sfoot" type="text" maxlength="40" placeholder="blank = World Cup 2026  ·  Top 2 Advance"></div>
         <div class="minfo">Live games show provisional points; the group is flagged LIVE.</div>
       </div>
 
@@ -152,13 +166,15 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     else document.getElementById("gateErr").textContent="Incorrect.";
   });
 
-  var TEAMS=[], started=false, t=null, busy=false;
+  var TEAMS=[], KITS={}, started=false, t=null, busy=false;
+  var gKitIdx=0, sKitIdx=0;
   var cv=document.getElementById("cv");
   var type="final";
 
   function init(){
     if(started) return; started=true;
-    fetch("/make/teams.json").then(function(r){return r.json();}).then(function(d){
+    fetch("/make/kits.json").then(function(r){return r.json();}).then(function(k){ KITS=k||{}; }).catch(function(){ KITS={}; }).then(function(){
+    return fetch("/make/teams.json").then(function(r){return r.json();}).then(function(d){
       TEAMS=d;
       ["home","away","gteam","gvs","steam"].forEach(function(id){ fillSelect(id, id==="gvs"); });
       setSel("home","England"); setSel("away","Croatia");
@@ -167,11 +183,27 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       var mo=document.getElementById("metric"); mo.innerHTML=Object.keys(METRICS).map(function(k){return '<option value="'+k+'">'+METRICS[k].title+'</option>';}).join("");
       fillInfoCopy();
       var sg=document.getElementById("sgroup"); sg.innerHTML="ABCDEFGHIJKL".split("").map(function(L){return '<option value="Group '+L+'">Group '+L+'</option>';}).join("");
+      syncGoalKits(); syncStatsKits();
       wire(); draw();
       var demo=new URLSearchParams(location.search).get("demo");
       if(demo){ var db=document.querySelector('#seg button[data-type="'+demo+'"]'); if(db) db.click(); }
     });
+    });
   }
+  // ---- jersey kit pickers (curated common combos per team in kits.json) ----
+  function kitsFor(name){ return KITS[name] || null; }
+  function buildKitPicker(boxId,labelId,name,getIdx,setIdx){
+    var box=document.getElementById(boxId), lab=document.getElementById(labelId);
+    var ks=kitsFor(name);
+    if(!ks){ box.innerHTML=""; lab.textContent="Team color (no kit presets)"; return; }
+    if(getIdx()>=ks.length) setIdx(0);
+    box.innerHTML=ks.map(function(k,i){ return '<button type="button" class="kit'+(i===getIdx()?' on':'')+'" title="'+k.n+'"><span class="s" style="background:'+k.s+'"></span><span class="t" style="background:'+k.t+'"></span></button>'; }).join("");
+    var cur=ks[getIdx()]; lab.textContent=cur?cur.n+" kit":"";
+    Array.prototype.forEach.call(box.children,function(btn,i){ btn.addEventListener("click",function(){ setIdx(i); buildKitPicker(boxId,labelId,name,getIdx,setIdx); update(); }); });
+  }
+  function syncGoalKits(){ gKitIdx=0; buildKitPicker("gkit","gkitlabel",opt("gteam").value,function(){return gKitIdx;},function(i){gKitIdx=i;}); }
+  function syncStatsKits(){ sKitIdx=0; buildKitPicker("skit","skitlabel",opt("steam").value,function(){return sKitIdx;},function(i){sKitIdx=i;}); }
+  function kitParams(name,idx){ var ks=kitsFor(name); if(ks&&ks[idx]) return {kit1:ks[idx].s,kit2:ks[idx].t}; return {}; }
   function fillSelect(id, blankFirst){
     var s=document.getElementById(id), html=blankFirst?'<option value="">None</option>':"";
     TEAMS.forEach(function(t){ html+='<option value="'+t.name+'" data-code="'+t.code+'" data-color="'+t.color+'">'+t.name+'</option>'; });
@@ -186,6 +218,8 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(type==="goal"){
       var tm=opt("gteam");
       var p={team:tm.value||"", code:tm.getAttribute("data-code")||"", tc:tm.getAttribute("data-color")||"#1E9B4B", tag:val("gtag")||"Sportacle", home:"1"};
+      if(val("ghead")) p.headline=val("ghead");
+      var gk=kitParams(tm.value,gKitIdx); if(gk.kit1){ p.kit1=gk.kit1; p.kit2=gk.kit2; }
       if(val("scorer")) p.scorer=val("scorer");
       if(val("gmin")) p.min=val("gmin");
       if(val("gjersey")) p.jersey=val("gjersey");
@@ -197,11 +231,14 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       var wh=opt("home"), wa=opt("away");
       var wp={an:wh.value||"", ac:wh.getAttribute("data-code")||"", acolor:wh.getAttribute("data-color")||"#1E9B4B",
               bn:wa.value||"", bc:wa.getAttribute("data-code")||"", bcolor:wa.getAttribute("data-color")||"#C8102E"};
+      if(val("rhead")) wp.headline=val("rhead");
       if(val("note")) wp.prompt=val("note");
       return wp;
     }
     if(type==="stats"){
-      var st=opt("steam"), sp={team:st.value, color:st.getAttribute("data-color")||"#1E9B4B", context:statsCtx, motm:document.getElementById("smotm").checked};
+      var st=opt("steam"), sp={team:st.value, color:st.getAttribute("data-color")||"#1E9B4B", context:val("sctx")||statsCtx, motm:document.getElementById("smotm").checked};
+      if(val("smotmlabel")) sp.motmLabel=val("smotmlabel");
+      var sk=kitParams(st.value,sKitIdx); if(sk.kit1){ sp.kit1=sk.kit1; sp.kit2=sk.kit2; }
       if(statsData && statsData.players.length){
         var q=statsData.players[parseInt(opt("splayer").value||"0",10)]||statsData.players[0];
         sp.player=q.athlete.displayName; sp.jersey=q.jersey||"";
@@ -220,6 +257,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
             hg:val("hg")||"0", ag:val("ag")||"0"};
     if(val("note")) pp.note=val("note");
     if(type==="half"){ pp.label="Half Time"; pp.lc="#FFC400"; } else { pp.label="Full Time"; }
+    if(val("rhead")) pp.label=val("rhead");
     return pp;
   }
   function rtype(){ return type==="goal"?"goal":(type==="whowins"?"whowins":(type==="stats"?"stats":"final")); }
@@ -369,7 +407,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         return {code:teamCode(name),name:name,P:s.P,W:s.W,D:s.D,L:s.L,GD:s.GD,Pts:s.Pts,GF:s.GF,live:isLive};
       });
       rows.sort(function(a,b){return (b.Pts-a.Pts)||(b.GD-a.GD)||(b.GF-a.GF);});
-      lastStandParams={group:gname,live:groupLive,rows:rows};
+      lastStandParams={group:gname,live:groupLive,rows:rows,title:val("stitle")||"",footnote:val("sfoot")||""};
       return window.SportacleRender.renderTo(cv,"standings",lastStandParams,2).then(function(){ if(!busy) statusEl.textContent=gname+(groupLive?" · LIVE":""); });
     }).catch(function(e){ statusEl.textContent="Standings load failed: "+e; });
   }
@@ -407,8 +445,8 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     });
     document.getElementById("metric").addEventListener("change", function(){ fillInfoCopy(); update(); });
     document.getElementById("infoReset").addEventListener("click", function(){ fillInfoCopy(); update(); });
-    document.getElementById("steam").addEventListener("change", loadStatsTeam);
-    document.getElementById("gteam").addEventListener("change", function(){ if(type==="goal") loadGoalSquad(); });
+    document.getElementById("steam").addEventListener("change", function(){ syncStatsKits(); loadStatsTeam(); });
+    document.getElementById("gteam").addEventListener("change", function(){ syncGoalKits(); if(type==="goal") loadGoalSquad(); });
     document.getElementById("gplayer").addEventListener("change", function(){
       var idx=opt("gplayer").value; if(idx===""||!goalSquad) return;
       var q=goalSquad[parseInt(idx,10)]; if(!q) return;
