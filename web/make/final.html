@@ -84,9 +84,18 @@ body{font-family:var(--ui);-webkit-font-smoothing:antialiased;text-rendering:geo
 (function(){
   function exportCard(opts){
     var card=document.querySelector(".card");
-    return document.fonts.ready.then(function(){
-      return window.htmlToImage.toPng(card,{width:1080,height:1080,pixelRatio:(opts&&opts.pixelRatio)||2,cacheBust:true});
-    });
+    var pr=(opts&&opts.pixelRatio)||2;
+    function imgsReady(){
+      var imgs=[].slice.call(card.querySelectorAll("img"));
+      return Promise.all(imgs.map(function(im){
+        if(im.complete&&im.naturalWidth>0)return null;
+        return new Promise(function(r){im.addEventListener("load",r,{once:true});im.addEventListener("error",r,{once:true});});
+      }));
+    }
+    function snap(){ return window.htmlToImage.toPng(card,{width:1080,height:1080,pixelRatio:pr,cacheBust:true}); }
+    // Wait for fonts + flag images to finish, then warm the rasterizer's cache with
+    // a discarded pass before the real capture (first pass can miss just-loaded images).
+    return Promise.all([document.fonts.ready,imgsReady()]).then(snap).then(snap);
   }
   window.addEventListener("message",function(e){
     if(!e.data||e.data.type!=="export")return;
