@@ -70,22 +70,17 @@
 <script src="/studio/render.js"></script>
 <script>
 (function(){
-  var PASS="lariat-r32";
-  // Feed URL first (so it is set before the gate can auto-unlock and start()):
-  // ?feed= persists, else previously saved value. Blank -> show the setup card.
-  var FEED_DEFAULT="https://sportacle-live-production.up.railway.app/feed.json";
+  // Feed is served by this same (Basic-Auth-protected) host, so it is same-origin.
+  // ?feed= can still override for local testing.
+  var FEED_DEFAULT="/feed.json";
   var qFeed=new URLSearchParams(location.search).get("feed");
   if(qFeed){ localStorage.setItem("sportacle-feed", qFeed); }
   function feedUrl(){ return localStorage.getItem("sportacle-feed")||FEED_DEFAULT; }
 
+  // Access is enforced SERVER-SIDE (HTTP Basic Auth on the Railway host); no in-page gate.
   var gate=document.getElementById("gate"), app=document.getElementById("app");
-  function unlock(){ gate.style.display="none"; app.hidden=false; start(); }
-  if(localStorage.getItem("studio-ok")==="1") unlock();
-  document.getElementById("gateForm").addEventListener("submit",function(e){
-    e.preventDefault();
-    if(document.getElementById("pass").value===PASS){ localStorage.setItem("studio-ok","1"); unlock(); }
-    else document.getElementById("gateErr").textContent="Incorrect.";
-  });
+  function unlock(){ if(gate) gate.style.display="none"; app.hidden=false; start(); }
+  unlock();
 
   var seen={}, started=false;
   function start(){

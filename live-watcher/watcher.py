@@ -12,8 +12,15 @@ the phone never has to do the watching and nothing is missed while it sleeps.
 stdlib only (urllib, http.server, threading, json) -> no pip install, no
 third-party supply-chain surface. Run: PORT=8080 python watcher.py
 """
-import json, os, re, time, threading, unicodedata, urllib.request, urllib.error
+import base64, json, os, posixpath, re, time, threading, unicodedata, urllib.request, urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+BASIC_USER = os.environ.get("BASIC_USER", "lariat")
+BASIC_PASS = os.environ.get("BASIC_PASS", "")  # set on Railway; empty = auth disabled (warned at boot)
+CTYPES = {".html": "text/html; charset=utf-8", ".js": "application/javascript", ".json": "application/json",
+          ".png": "image/png", ".css": "text/css", ".svg": "image/svg+xml", ".ico": "image/x-icon",
+          ".webmanifest": "application/manifest+json"}
 
 ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/"
 SCOREBOARD = ESPN + "scoreboard"
@@ -269,26 +276,53 @@ def poll_loop():
         time.sleep(delay)
 
 # ---- HTTP --------------------------------------------------------------------
+def auth_ok(header):
+    if not BASIC_PASS:
+        return True  # auth disabled (boot warns); set BASIC_PASS on Railway to enforce
+    if not header or not header.startswith("Basic "):
+        return False
+    try:
+        u, _, p = base64.b64decode(header[6:]).decode("utf-8").partition(":")
+        return u == BASIC_USER and p == BASIC_PASS
+    except Exception:
+        return False
+
 class Handler(BaseHTTPRequestHandler):
-    def _send(self, code, body, ctype="application/json"):
-        b = body.encode("utf-8")
+    def _send(self, code, body, ctype="application/json", extra=None):
+        b = body if isinstance(body, (bytes, bytearray)) else body.encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", ctype)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(b)))
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(b)
     def do_GET(self):
         path = self.path.split("?")[0]
+        # health stays open (Railway / uptime checks); everything else needs auth
+        if path == "/healthz":
+            return self._send(200, json.dumps({"ok": True, "cards": len(cards), "teams": len(TEAMS)}))
+        if not auth_ok(self.headers.get("Authorization")):
+            return self._send(401, "Authentication required\n", "text/plain; charset=utf-8",
+                              {"WWW-Authenticate": 'Basic realm="Sportacle internal"'})
         if path in ("/feed.json", "/feed"):
             with LOCK:
                 payload = json.dumps({"updated": int(time.time() * 1000), "cards": cards})
-            self._send(200, payload)
-        elif path in ("/healthz", "/"):
-            self._send(200, json.dumps({"ok": True, "cards": len(cards), "teams": len(TEAMS)}))
-        else:
-            self._send(404, json.dumps({"error": "not found"}))
+            return self._send(200, payload, "application/json", {"Cache-Control": "no-store"})
+        return self._serve_static(path)
+    def _serve_static(self, path):
+        if path == "/":
+            path = "/live/index.html"        # default landing is the phone page
+        elif path.endswith("/"):
+            path += "index.html"
+        rel = posixpath.normpath(path).lstrip("/")
+        full = os.path.join(STATIC_DIR, rel)
+        if not os.path.abspath(full).startswith(STATIC_DIR + os.sep) or not os.path.isfile(full):
+            return self._send(404, "Not found\n", "text/plain; charset=utf-8")
+        with open(full, "rb") as f:
+            data = f.read()
+        ext = os.path.splitext(full)[1].lower()
+        self._send(200, data, CTYPES.get(ext, "application/octet-stream"))
     def log_message(self, *a):
         pass
 
@@ -297,7 +331,9 @@ def main():
     load_state()
     threading.Thread(target=poll_loop, daemon=True).start()
     port = int(os.environ.get("PORT", "8080"))
-    print("[boot] teams=%d, serving on :%d" % (len(TEAMS), port), flush=True)
+    if not BASIC_PASS:
+        print("[boot] WARNING: BASIC_PASS not set -> auth DISABLED (set it on Railway to lock the tools)", flush=True)
+    print("[boot] teams=%d, static=%s, serving on :%d" % (len(TEAMS), STATIC_DIR, port), flush=True)
     ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()
 
 if __name__ == "__main__":

@@ -174,16 +174,10 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
 <script src="render.js"></script>
 <script>
 (function(){
-  // ---- soft gate (deterrent; see note to Chase). Change PASS to rotate it. ----
-  var PASS = "lariat-r32";
+  // Access is enforced SERVER-SIDE (HTTP Basic Auth on the Railway host); no in-page gate.
   var gate=document.getElementById("gate"), app=document.getElementById("app");
-  function unlock(){ gate.style.display="none"; app.hidden=false; init(); }
-  if(localStorage.getItem("studio-ok")==="1"){ unlock(); }
-  document.getElementById("gateForm").addEventListener("submit",function(e){
-    e.preventDefault();
-    if(document.getElementById("pass").value===PASS){ localStorage.setItem("studio-ok","1"); unlock(); }
-    else document.getElementById("gateErr").textContent="Incorrect.";
-  });
+  function unlock(){ if(gate) gate.style.display="none"; app.hidden=false; init(); }
+  unlock();
 
   var TEAMS=[], KITS={}, started=false, t=null, busy=false;
   var gKitIdx=0, sKitIdx=0;
