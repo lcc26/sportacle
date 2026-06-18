@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sportacle FINAL card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Khand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#11161F;--teamA:#1E9B4B;--teamB:#C8102E;--display:"Khand",sans-serif;--ui:"Barlow Semi Condensed",sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1080px;height:1080px;overflow:hidden;background:#fff}
+body{font-family:var(--ui);-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
+.card{position:relative;width:1080px;height:1080px;overflow:hidden;background:#fff}
+.half{position:absolute;top:0;bottom:0;width:1080px;height:1080px;overflow:hidden}
+.left{clip-path:polygon(0 0, 614px 0, 466px 1080px, 0 1080px);background:var(--teamA)}
+.left .flag{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:100% 50%;filter:saturate(1.12) contrast(1.04)}
+.right{clip-path:polygon(614px 0, 1080px 0, 1080px 1080px, 466px 1080px);background:var(--teamB)}
+.right .flag{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:0% 50%;filter:saturate(1.10) contrast(1.04)}
+.scrim-t{position:absolute;top:0;left:0;right:0;height:330px;z-index:3;background:linear-gradient(180deg,rgba(0,0,0,.66) 0%,rgba(0,0,0,.26) 58%,rgba(0,0,0,0) 100%)}
+.scrim-b{position:absolute;bottom:0;left:0;right:0;height:300px;z-index:3;background:linear-gradient(0deg,rgba(0,0,0,.64) 0%,rgba(0,0,0,.26) 52%,rgba(0,0,0,0) 100%)}
+.seam{position:absolute;inset:0;z-index:6;pointer-events:none;background:#fff;clip-path:polygon(607px 0, 621px 0, 473px 1080px, 459px 1080px)}
+.seam-edge{position:absolute;inset:0;z-index:5;pointer-events:none;background:linear-gradient(180deg,var(--teamA),var(--teamB));clip-path:polygon(601px 0, 627px 0, 479px 1080px, 453px 1080px);opacity:.9}
+.ft{position:absolute;top:54px;left:50%;transform:translateX(-50%);z-index:24;font-family:var(--ui);font-weight:800;font-size:30px;letter-spacing:9px;text-transform:uppercase;color:var(--ink);background:#fff;padding:11px 30px 9px;border-radius:999px;box-shadow:0 12px 30px rgba(0,0,0,.3)}
+.names{position:absolute;top:150px;left:0;right:0;z-index:20;display:flex;justify-content:space-between;padding:0 72px}
+.team{width:400px}.team.b{text-align:left}.team.k{text-align:right}
+.seed{font-family:var(--ui);font-weight:800;font-size:22px;letter-spacing:5px;text-transform:uppercase;margin-bottom:2px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.55)}
+.nm{font-family:var(--display);font-weight:700;line-height:.82;text-transform:uppercase;color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.6)}
+.nm.s1{font-size:104px}.nm.s2{font-size:88px}.nm.s3{font-size:66px}
+.score{position:absolute;left:50%;top:560px;transform:translate(-50%,-50%);z-index:22;display:flex;align-items:center;gap:30px;background:#fff;border:5px solid var(--ink);border-radius:40px;padding:18px 52px 24px;box-shadow:0 0 0 9px rgba(255,255,255,.94),0 24px 56px rgba(0,0,0,.4)}
+.g{font-family:var(--display);font-weight:700;font-size:200px;line-height:.74;color:var(--ink);min-width:96px;text-align:center}
+.g.ga{color:var(--teamA)}.g.gb{color:var(--teamB)}
+.dash{font-family:var(--display);font-weight:600;font-size:120px;line-height:.7;color:rgba(17,22,31,.32);margin-top:-12px}
+.note{position:absolute;left:50%;bottom:188px;transform:translateX(-50%);z-index:21;font-family:var(--ui);font-weight:800;font-size:26px;letter-spacing:6px;text-transform:uppercase;color:var(--ink);background:rgba(255,255,255,.94);padding:9px 28px;border-radius:999px;box-shadow:0 12px 30px rgba(0,0,0,.22)}
+.brand{position:absolute;left:0;right:0;bottom:48px;z-index:22;text-align:center}
+.wm{font-family:var(--display);font-weight:700;font-size:46px;letter-spacing:3px;text-transform:uppercase;line-height:1;color:var(--ink);display:inline-block;padding:8px 26px;border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 10px 28px rgba(0,0,0,.22)}
+.wm b{color:var(--teamA)}
+.hand{font-family:var(--ui);font-weight:700;font-size:20px;letter-spacing:3px;text-transform:uppercase;color:var(--ink);margin-top:10px;display:inline-block;padding:5px 16px;border-radius:999px;background:rgba(255,255,255,.88)}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="half left"><img class="flag" id="flagA" alt=""><div class="scrim-t"></div><div class="scrim-b"></div></div>
+  <div class="half right"><img class="flag" id="flagB" alt=""><div class="scrim-t"></div><div class="scrim-b"></div></div>
+  <div class="seam-edge"></div><div class="seam"></div>
+  <div class="ft" id="label">Full Time</div>
+  <div class="names">
+    <div class="team b"><div class="seed" id="noteA"></div><div class="nm s1" id="nameA">Team A</div></div>
+    <div class="team k"><div class="seed" id="noteB"></div><div class="nm s1" id="nameB">Team B</div></div>
+  </div>
+  <div class="score"><span class="g ga" id="ga">0</span><span class="dash">-</span><span class="g gb" id="gb">0</span></div>
+  <div class="note" id="note" style="display:none"></div>
+  <div class="brand"><div class="wm">Sport<b>acle</b></div><div class="hand">@TheSportacle &middot; gosportacle.com</div></div>
+</div>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search);
+  function v(k,d){var x=q.get(k);return (x===null||x==="")?d:x;}
+  // Flags load locally (make.py, file://) from ../flags and on the hosted site from /flags.
+  var fbase=(location.protocol==="file:")?"../flags/":"/flags/";
+  var an=v("an","Team A"),bn=v("bn","Team B"),ac=v("ac",""),bc=v("bc","");
+  var acolor=v("acolor","#1E9B4B"),bcolor=v("bcolor","#C8102E"),anote=v("anote",""),bnote=v("bnote","");
+  var hg=v("hg","0"),ag=v("ag","0"),label=v("label","Full Time"),note=v("note","");
+  var r=document.documentElement.style;r.setProperty("--teamA",acolor);r.setProperty("--teamB",bcolor);
+  if(ac)document.getElementById("flagA").src=fbase+ac+".png";
+  if(bc)document.getElementById("flagB").src=fbase+bc+".png";
+  function applyName(id,name){var el=document.getElementById(id),w=name.split(" "),longest=0,ch=name.length;
+    for(var i=0;i<w.length;i++)if(w[i].length>longest)longest=w[i].length;
+    var cls="nm s1";if(ch>9&&w.length>1)cls="nm s2";if(longest>9||ch>16)cls="nm s3";
+    el.className=cls;el.innerHTML=(w.length>1&&ch>9)?w.join("<br>"):name;}
+  applyName("nameA",an);applyName("nameB",bn);
+  document.getElementById("noteA").textContent=anote?anote.toUpperCase():"";
+  document.getElementById("noteB").textContent=bnote?bnote.toUpperCase():"";
+  document.getElementById("label").textContent=label;
+  document.getElementById("ga").textContent=hg;document.getElementById("gb").textContent=ag;
+  if(note){var n=document.getElementById("note");n.textContent=note.toUpperCase();n.style.display="";}
+})();
+</script>
+</body>
+</html>

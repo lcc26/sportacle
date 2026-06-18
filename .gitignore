@@ -5,3 +5,6 @@ __pycache__/
 .DS_Store
 .netlify/
 .env
+
+# locally rendered GOAL/FINAL graphics
+card-gen/out/
