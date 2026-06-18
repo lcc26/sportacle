@@ -40,6 +40,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
 .field select,.field input{width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--line);background:#0E1116;color:var(--ink)}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .hide{display:none}
+.chk{display:flex;align-items:center;gap:9px;font-size:14px;color:var(--ink);margin:2px 0 14px;cursor:pointer}
+.chk input{width:18px;height:18px;accent-color:var(--accent)}
+.minfo{font-size:12px;color:var(--muted);margin-bottom:6px;min-height:14px}
 .dl{width:100%;margin-top:8px;padding:15px;border-radius:12px;border:0;background:var(--amber);color:#11161F;font-weight:800;font-family:"Space Grotesk";font-size:16px;letter-spacing:.3px;cursor:pointer}
 .dl:active{transform:translateY(1px)}
 .status{margin-top:12px;font-size:13px;color:var(--muted);min-height:18px;text-align:center}
@@ -71,6 +74,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <button data-type="half">Half</button>
         <button data-type="final" class="on">Final</button>
         <button data-type="whowins">Who Wins</button>
+        <button data-type="stats">Stats</button>
       </div>
 
       <!-- result fields (final + half) -->
@@ -94,6 +98,14 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         </div>
         <div class="field"><label>Opponent (for scoreline, optional)</label><select id="gvs"></select></div>
         <div class="field"><label>Tag (optional)</label><input id="gtag" type="text" placeholder="Sportacle"></div>
+      </div>
+
+      <!-- stats fields -->
+      <div id="statsFields" class="hide">
+        <div class="field"><label>Team</label><select id="steam"></select></div>
+        <div class="field"><label>Player (auto-loaded from last match)</label><select id="splayer"><option value="">Pick a team</option></select></div>
+        <label class="chk"><input type="checkbox" id="smotm"> Man of the Match</label>
+        <div class="minfo" id="matchinfo"></div>
       </div>
 
       <button class="dl" id="dl">Download PNG (1080x1080)</button>
@@ -126,9 +138,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(started) return; started=true;
     fetch("/make/teams.json").then(function(r){return r.json();}).then(function(d){
       TEAMS=d;
-      ["home","away","gteam","gvs"].forEach(function(id){ fillSelect(id, id==="gvs"); });
+      ["home","away","gteam","gvs","steam"].forEach(function(id){ fillSelect(id, id==="gvs"); });
       setSel("home","England"); setSel("away","Croatia");
-      setSel("gteam","England"); setSel("gvs","Croatia");
+      setSel("gteam","England"); setSel("gvs","Croatia"); setSel("steam","England");
       document.getElementById("hg").value="4"; document.getElementById("ag").value="2";
       wire(); draw();
     });
@@ -160,6 +172,20 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       if(val("note")) wp.prompt=val("note");
       return wp;
     }
+    if(type==="stats"){
+      var st=opt("steam"), sp={team:st.value, color:st.getAttribute("data-color")||"#1E9B4B", context:statsCtx, motm:document.getElementById("smotm").checked};
+      if(statsData && statsData.players.length){
+        var q=statsData.players[parseInt(opt("splayer").value||"0",10)]||statsData.players[0];
+        sp.player=q.athlete.displayName; sp.jersey=q.jersey||"";
+        var pos=(q.position||{}).abbreviation||""; sp.position=posName(pos);
+        if(pos==="G"||pos==="GK"){
+          sp.stats=[{label:"Saves",value:statOf(q,"saves")||"0"},{label:"Conceded",value:statOf(q,"goalsConceded")||"0"},{label:"Shots Faced",value:statOf(q,"shotsFaced")||"0"}];
+        } else {
+          sp.stats=[{label:"Goals",value:statOf(q,"totalGoals")||"0"},{label:"Assists",value:statOf(q,"goalAssists")||"0"},{label:"Shots",value:statOf(q,"totalShots")||"0"},{label:"On Target",value:statOf(q,"shotsOnTarget")||"0"}];
+        }
+      } else { sp.player="Pick a team"; sp.stats=[]; }
+      return sp;
+    }
     var h=opt("home"), a=opt("away");
     var pp={an:h.value||"", ac:h.getAttribute("data-code")||"", acolor:h.getAttribute("data-color")||"#1E9B4B",
             bn:a.value||"", bc:a.getAttribute("data-code")||"", bcolor:a.getAttribute("data-color")||"#C8102E",
@@ -168,8 +194,51 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(type==="half"){ pp.label="Half Time"; pp.lc="#FFC400"; } else { pp.label="Full Time"; }
     return pp;
   }
-  function rtype(){ return type==="goal"?"goal":(type==="whowins"?"whowins":"final"); }
+  function rtype(){ return type==="goal"?"goal":(type==="whowins"?"whowins":(type==="stats"?"stats":"final")); }
   var statusEl=document.getElementById("status");
+
+  // ---- Stats: pull a team's last completed match + per-player stats from ESPN ----
+  function normName(s){ return String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z]/g,""); }
+  var CANON={drcongo:"congo",congodr:"congo",turkiye:"turkiye",turkey:"turkiye",unitedstates:"usa",usa:"usa",southkorea:"korea",korearepublic:"korea",republicofkorea:"korea",ivorycoast:"ivory",cotedivoire:"ivory",bosniaandherzegovina:"bosnia",bosniaherzegovina:"bosnia"};
+  function canon(s){ var n=normName(s); return CANON[n]||n; }
+  function statOf(q,name){ var a=q.stats||[]; for(var i=0;i<a.length;i++){ if(a[i].name===name) return a[i].displayValue; } return ""; }
+  function posName(abbr){ abbr=String(abbr||"").toUpperCase();
+    if(abbr==="G"||abbr==="GK") return "Goalkeeper";
+    if(abbr==="SUB"||abbr==="") return "";
+    if(/^(D|CB|CD|RB|LB|RWB|LWB|SW|FB)/.test(abbr)) return "Defender";
+    if(/^(F|CF|ST|RW|LW|W)/.test(abbr)) return "Forward";
+    return "Midfielder";
+  }
+  var ESPN="https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/";
+  var statsData=null, statsCtx="";
+  function ymdU(ms){ var d=new Date(ms); return ""+d.getUTCFullYear()+("0"+(d.getUTCMonth()+1)).slice(-2)+("0"+d.getUTCDate()).slice(-2); }
+  function loadStatsTeam(){
+    var tname=opt("steam").value; if(!tname) return;
+    var pl=document.getElementById("splayer"); pl.innerHTML='<option value="">Loading…</option>';
+    document.getElementById("matchinfo").textContent=""; statusEl.textContent="Pulling "+tname+"'s last match…"; statsData=null;
+    var now=Date.now();
+    fetch(ESPN+"scoreboard?dates="+ymdU(now-13*864e5)+"-"+ymdU(now+864e5)).then(function(r){return r.json();}).then(function(d){
+      var ev=null, best=0;
+      (d.events||[]).forEach(function(e){
+        var comp=(e.competitions||[])[0]||{}; if(!(((comp.status||{}).type)||{}).completed) return;
+        if((comp.competitors||[]).some(function(c){return canon(c.team.displayName)===canon(tname);})){ var t=new Date(e.date).getTime(); if(t>best){best=t; ev=e;} }
+      });
+      if(!ev){ pl.innerHTML='<option value="">No recent match</option>'; statusEl.textContent="No recent completed match for "+tname+"."; draw(); return; }
+      var comp=ev.competitions[0], cs=comp.competitors;
+      var me=cs.filter(function(c){return canon(c.team.displayName)===canon(tname);})[0], them=cs.filter(function(c){return c!==me;})[0];
+      statsCtx = me.homeAway==="home" ? (tname+" "+me.score+"-"+them.score+" "+them.team.displayName) : (them.team.displayName+" "+them.score+"-"+me.score+" "+tname);
+      return fetch(ESPN+"summary?event="+ev.id).then(function(r){return r.json();}).then(function(sum){
+        var ros=(sum.rosters||[]).filter(function(tt){return canon(tt.team.displayName)===canon(tname);})[0];
+        if(!ros){ pl.innerHTML='<option value="">Lineup unavailable</option>'; statusEl.textContent="Lineup unavailable."; draw(); return; }
+        var players=(ros.roster||[]).filter(function(q){return q.starter||q.subbedIn||statOf(q,"appearances")==="1";});
+        players.sort(function(a,b){ var x=a.starter?0:1,y=b.starter?0:1; if(x!==y)return x-y; return (a.formationPlace||99)-(b.formationPlace||99); });
+        statsData={team:tname, players:players};
+        pl.innerHTML=players.map(function(q,i){ return '<option value="'+i+'">#'+(q.jersey||"")+"  "+q.athlete.displayName+'</option>'; }).join("") || '<option value="">No players</option>';
+        document.getElementById("matchinfo").textContent="Last match: "+statsCtx;
+        statusEl.textContent="Loaded "+players.length+" players."; draw();
+      });
+    }).catch(function(){ pl.innerHTML='<option value="">Load failed</option>'; statusEl.textContent="ESPN load failed."; });
+  }
 
   // Native canvas render = the preview AND (re-run) the download. No iframe, no
   // html-to-image, no foreignObject, no network at capture: bulletproof.
@@ -181,15 +250,17 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       b.addEventListener("click",function(){
         document.querySelectorAll("#seg button").forEach(function(x){x.classList.remove("on");});
         b.classList.add("on"); type=b.getAttribute("data-type");
-        document.getElementById("resultFields").classList.toggle("hide", type==="goal");
+        document.getElementById("resultFields").classList.toggle("hide", type==="goal"||type==="stats");
         document.getElementById("goalFields").classList.toggle("hide", type!=="goal");
+        document.getElementById("statsFields").classList.toggle("hide", type!=="stats");
         document.getElementById("scoreRow").classList.toggle("hide", type==="whowins");
-        update();
+        if(type==="stats" && !statsData){ loadStatsTeam(); } else { update(); }
       });
     });
     document.querySelectorAll(".controls select, .controls input").forEach(function(el){
       el.addEventListener("input", update); el.addEventListener("change", update);
     });
+    document.getElementById("steam").addEventListener("change", loadStatsTeam);
   }
 
   // ---- download: re-render fresh, then canvas.toBlob (same-origin canvas never taints) ----

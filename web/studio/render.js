@@ -305,6 +305,93 @@
     ctx.restore();
   }
 
+  // ---- color helpers ----
+  function hexRgb(h) { h = String(h || '').replace('#', ''); if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2]; return [parseInt(h.slice(0, 2), 16) || 0, parseInt(h.slice(2, 4), 16) || 0, parseInt(h.slice(4, 6), 16) || 0]; }
+  function lum(h) { var c = hexRgb(h); return (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255; }
+  function shade(h, f) { var c = hexRgb(h); function cl(v) { return Math.max(0, Math.min(255, Math.round(v))); } return 'rgb(' + cl(c[0] * f) + ',' + cl(c[1] * f) + ',' + cl(c[2] * f) + ')'; }
+  function contrastInk(h) { return lum(h) > 0.62 ? '#11161F' : '#ffffff'; }
+
+  // ---- generated jersey (stylized kit in team colors) ----
+  function drawJersey(ctx, cx, cy, scale, c1, c2, num) {
+    ctx.save();
+    ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.translate(-150, -170);
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 18;
+    var pts = [10, 60, 70, 30, 110, 30, 150, 58, 190, 30, 230, 30, 290, 60, 270, 132, 222, 112, 236, 330, 64, 330, 78, 112, 30, 132];
+    poly(ctx, pts); ctx.fillStyle = c1; ctx.fill();
+    ctx.restore();
+    // top highlight for a little dimension
+    var hg = ctx.createLinearGradient(0, 30, 0, 330);
+    hg.addColorStop(0, 'rgba(255,255,255,.16)'); hg.addColorStop(.4, 'rgba(255,255,255,0)');
+    poly(ctx, pts); ctx.save(); ctx.clip(); ctx.fillStyle = hg; ctx.fillRect(0, 0, 300, 340); ctx.restore();
+    // collar + cuff trim (secondary)
+    ctx.strokeStyle = c2; ctx.lineJoin = 'round';
+    ctx.lineWidth = 11; ctx.beginPath(); ctx.moveTo(108, 33); ctx.lineTo(150, 64); ctx.lineTo(192, 33); ctx.stroke();
+    ctx.lineWidth = 9;
+    ctx.beginPath(); ctx.moveTo(34, 126); ctx.lineTo(14, 64); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(266, 126); ctx.lineTo(286, 64); ctx.stroke();
+    // number on the chest
+    if (num) {
+      ctx.fillStyle = contrastInk(c1); ctx.font = font('700', 120, KH);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(num), 150, 200);
+    }
+    ctx.restore();
+  }
+
+  // ---- STATS (post-match player card) ----
+  function renderStats(ctx, p) {
+    var c1 = p.color || '#1E9B4B', c2 = p.color2 || shade(c1, 0.55);
+    // background: dark with a team-color glow
+    ctx.fillStyle = '#0d1016'; ctx.fillRect(0, 0, W, W);
+    var rg = ctx.createRadialGradient(W / 2, 300, 0, W / 2, 300, 760);
+    rg.addColorStop(0, shade(c1, 0.62)); rg.addColorStop(1, 'rgba(13,16,22,0)');
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, W, W);
+    var vg = ctx.createLinearGradient(0, W - 360, 0, W); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)');
+    ctx.fillStyle = vg; ctx.fillRect(0, W - 360, W, 360);
+    // tag + context
+    ctx.font = font('800', 24, BR); ls(ctx, 6); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillText((p.team || '').toUpperCase(), 64, 80); ls(ctx, 0);
+    if (p.context) { ctx.font = font('700', 22, BR); ls(ctx, 3); ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillText(p.context.toUpperCase(), W - 64, 80); ls(ctx, 0); }
+    // Man of the Match ribbon
+    var top = 150;
+    if (p.motm) {
+      pill(ctx, 540, 158, (p.motmLabel || 'Man of the Match').toUpperCase(), {
+        font: font('800', 26, BR), lsp: 5, padX: 30, h: 52, bg: '#FFC400', color: INK, shadow: { c: 'rgba(0,0,0,.4)', b: 28, oy: 10 }
+      });
+      top = 210;
+    }
+    // jersey hero
+    drawJersey(ctx, 540, top + 230, 1.15, c1, c2, p.jersey);
+    // player name
+    var name = String(p.player || 'Player').toUpperCase();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#fff';
+    var ny = top + 470, nsize = name.length > 16 ? 76 : 96;
+    ctx.font = font('700', nsize, KH);
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 16; ctx.fillText(name, 540, ny); ctx.restore();
+    // position line
+    if (p.position) { ctx.font = font('700', 22, BR); ls(ctx, 4); ctx.fillStyle = 'rgba(255,255,255,.66)'; ctx.fillText(p.position.toUpperCase(), 540, ny + 40); ls(ctx, 0); }
+    // stat blocks
+    drawStats(ctx, p.stats || [], ny + 110, c1);
+    // brand footer
+    ctx.font = font('700', 38, KH); ls(ctx, 3); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    var t1 = 'SPORT', t2 = 'ACLE', bw1 = ctx.measureText(t1).width, bw2 = ctx.measureText(t2).width, bx = 540 - (bw1 + bw2) / 2, by = W - 56;
+    ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.fillText(t1, bx, by); ctx.fillStyle = '#FFC400'; ctx.fillText(t2, bx + bw1, by);
+    ls(ctx, 0); ctx.font = font('700', 18, BR); ls(ctx, 3); ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillText('GOSPORTACLE.COM', bx + bw1 + bw2 + 16, by + 1); ls(ctx, 0);
+  }
+  function drawStats(ctx, stats, y, accent) {
+    stats = stats.slice(0, 4); var n = stats.length; if (!n) return;
+    var slot = Math.min(260, (W - 120) / n), startX = 540 - (slot * n) / 2 + slot / 2;
+    for (var i = 0; i < n; i++) {
+      var cx = startX + i * slot, s = stats[i];
+      ctx.textAlign = 'center';
+      ctx.font = font('700', 120, KH); ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#fff';
+      ctx.fillText(String(s.value), cx, y);
+      ctx.font = font('800', 21, BR); ls(ctx, 2.5); ctx.fillStyle = 'rgba(255,255,255,.62)';
+      ctx.fillText(String(s.label).toUpperCase(), cx, y + 34); ls(ctx, 0);
+    }
+  }
+
   // ---- public entry ----
   function renderTo(canvas, type, p, scale) {
     scale = scale || 2;
@@ -312,6 +399,7 @@
     var ctx = canvas.getContext('2d');
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     return ensureFonts().then(function () {
+      if (type === 'stats') { renderStats(ctx, p); return; }
       if (type === 'goal') {
         return Promise.all([loadFlag(p.code), loadFlag(p.code), loadFlag(p.vs)]).then(function (f) {
           renderGoal(ctx, p, f[0], f[1], f[2]);
