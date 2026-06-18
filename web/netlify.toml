@@ -1,24 +1,8 @@
 # Sportacle static site. Deploy this folder:  netlify deploy --dir=web --prod
-# Or point a Netlify site's publish directory at this folder.
+#
+# NOTE: we deploy with `netlify deploy --dir=web`, and the CLI resolves netlify.toml
+# from the working directory (repo root), NOT from --dir. So [[headers]] and
+# [[redirects]] here are NOT applied. The active config lives in files Netlify reads
+# from the publish-dir root instead:  web/_headers  and  web/_redirects.
 [build]
   publish = "."
-
-# Predictions refresh often during the tournament; keep that file lightly cached
-# so a redeploy of data/predictions.json shows up quickly.
-[[headers]]
-  for = "/data/*"
-  [headers.values]
-    Cache-Control = "public, max-age=60"
-
-[[headers]]
-  for = "/flags/*"
-  [headers.values]
-    Cache-Control = "public, max-age=604800"
-
-# Real /r32/<team>/ pages are static files and serve normally; any team URL that
-# was not generated (a team not in the current projection) falls back to the
-# homepage instead of a 404. Static files take precedence over this rule.
-[[redirects]]
-  from = "/r32/*"
-  to = "/"
-  status = 302

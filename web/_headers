@@ -1,0 +1,8 @@
+# Predictions refresh often during the tournament; keep that file lightly cached
+# so a redeploy of data/predictions.json shows up quickly.
+/data/*
+  Cache-Control: public, max-age=60
+
+# Flags rarely change.
+/flags/*
+  Cache-Control: public, max-age=604800

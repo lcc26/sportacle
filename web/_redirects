@@ -1,0 +1,5 @@
+# Real /r32/<team>/ pages are static files and take precedence (Netlify serves an
+# existing file before applying a non-forced redirect). Any team URL with no
+# generated page (a team not in the current projection) falls back to the homepage
+# instead of a 404.
+/r32/*    /    302
