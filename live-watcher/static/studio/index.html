@@ -99,6 +99,8 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <button data-type="stats">Stats</button>
         <button data-type="infographic">Fun Stats</button>
         <button data-type="standings">Standings</button>
+        <button data-type="roast">Roast</button>
+        <button data-type="cooked">Cooked</button>
         <button data-type="live">Live</button>
       </div>
 
@@ -159,6 +161,23 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <div class="minfo">Live games show provisional points; the group is flagged LIVE.</div>
       </div>
 
+      <!-- roast / verdict fields -->
+      <div id="roastFields" class="hide">
+        <div class="field"><label>Verdict</label><select id="verdict"></select></div>
+        <div class="field"><label>Team A</label><select id="rteamA"></select></div>
+        <div class="field"><label>Team B</label><select id="rteamB"></select></div>
+        <div class="field"><label>Score (blank = use L marks)</label><input id="rscore" type="text" placeholder="e.g. 0-0"></div>
+        <div class="field"><label>Stamp</label><input id="rstamp" type="text" maxlength="26" placeholder="Stamp"></div>
+        <div class="field"><label>Headline</label><input id="rheadline" type="text" maxlength="42" placeholder="Headline (blank to hide)"></div>
+        <div class="field"><label>Receipt</label><input id="rreceipt" type="text" maxlength="54" placeholder="One brutal stat (blank to hide)"></div>
+        <button type="button" class="linkbtn" id="roastReset">Reset copy to this verdict's default</button>
+      </div>
+
+      <!-- who's cooked (standings-derived) fields -->
+      <div id="cookedFields" class="hide">
+        <div class="minfo">Ranks the teams closest to a group-stage exit, pulled live from the standings. First load takes a moment.</div>
+      </div>
+
       <!-- live auto-generator fields -->
       <div id="liveFields" class="hide">
         <button type="button" class="dl" id="liveToggle" style="margin:0 0 12px">Start live auto</button>
@@ -195,12 +214,15 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     fetch("/make/kits.json").then(function(r){return r.json();}).then(function(k){ KITS=k||{}; }).catch(function(){ KITS={}; }).then(function(){
     return fetch("/make/teams.json").then(function(r){return r.json();}).then(function(d){
       TEAMS=d;
-      ["home","away","gteam","gvs","steam"].forEach(function(id){ fillSelect(id, id==="gvs"); });
+      ["home","away","gteam","gvs","steam","rteamA","rteamB"].forEach(function(id){ fillSelect(id, id==="gvs"); });
       setSel("home","England"); setSel("away","Croatia");
       setSel("gteam","England"); setSel("gvs","Croatia"); setSel("steam","England");
+      setSel("rteamA","South Africa"); setSel("rteamB","Czechia");
       document.getElementById("hg").value="4"; document.getElementById("ag").value="2";
       var mo=document.getElementById("metric"); mo.innerHTML=Object.keys(METRICS).map(function(k){return '<option value="'+k+'">'+METRICS[k].title+'</option>';}).join("");
       fillInfoCopy();
+      var vo=document.getElementById("verdict"); vo.innerHTML=Object.keys(VERDICTS).map(function(k){return '<option value="'+k+'">'+VERDICTS[k].label+'</option>';}).join("");
+      fillVerdictCopy();
       var sg=document.getElementById("sgroup"); sg.innerHTML="ABCDEFGHIJKL".split("").map(function(L){return '<option value="Group '+L+'">Group '+L+'</option>';}).join("");
       syncGoalKits(); syncStatsKits();
       wire(); draw();
@@ -234,7 +256,36 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
   function val(id){ return (document.getElementById(id).value||"").trim(); }
 
   // Build the params object the native canvas renderer (render.js) expects.
+  // Roast verdicts: each prefills stamp/headline/receipt (all editable). marks=true uses L badges instead of a score.
+  var VERDICTS={
+    bore:{label:"Bore Draw",stamp:"BORE DRAW",color:"#C8102E",headline:"Mutually assured mediocrity",receipt:"90 minutes you will never get back",marks:false},
+    doublel:{label:"Nobody Wins (Double L)",stamp:"NOBODY WINS",color:"#C8102E",headline:"A point that helps neither",receipt:"Both still searching for a first win",marks:true},
+    scorigami:{label:"Scorigami",stamp:"SCORIGAMI",color:"#1E9B4B",headline:"A scoreline we had never seen",receipt:"First of its kind this tournament",marks:false},
+    mercy:{label:"Mercy Rule",stamp:"MERCY RULE",color:"#C8102E",headline:"Put them to bed",receipt:"Somebody call it off",marks:false},
+    bottled:{label:"Bottled It",stamp:"BOTTLED IT",color:"#C8102E",headline:"Led at the half. Then this.",receipt:"A lead is not a guarantee",marks:false},
+    allergic:{label:"Allergic to the Net",stamp:"ALLERGIC TO THE NET",color:"#ED2939",headline:"All shots, no end product",receipt:"Plenty of shots. Zero goals.",marks:false},
+    fight:{label:"Street Fight",stamp:"THAT WASN'T FOOTBALL",color:"#C8102E",headline:"More cards than chances",receipt:"The referee needed a bigger pocket",marks:false}
+  };
+  function fillVerdictCopy(){
+    var V=VERDICTS[opt("verdict").value]; if(!V) return;
+    document.getElementById("rstamp").value=V.stamp;
+    document.getElementById("rheadline").value=V.headline;
+    document.getElementById("rreceipt").value=V.receipt;
+    document.getElementById("rscore").value=V.marks?"":"0-0";
+  }
   function buildParams(){
+    if(type==="roast"){
+      var V=VERDICTS[opt("verdict").value]||{}, ra=opt("rteamA"), rb=opt("rteamB");
+      var rp={an:ra.value||"", ac:ra.getAttribute("data-code")||"", acolor:ra.getAttribute("data-color")||"#1E9B4B",
+              bn:rb.value||"", bc:rb.getAttribute("data-code")||"", bcolor:rb.getAttribute("data-color")||"#C8102E",
+              stamp:val("rstamp")||V.stamp||"VERDICT", stampColor:V.color||"#C8102E"};
+      if(val("rheadline")) rp.headline=val("rheadline");
+      if(val("rreceipt")) rp.receipt=val("rreceipt");
+      var rsc=val("rscore");
+      if(V.marks && !rsc){ rp.markA="L"; rp.markB="L"; }
+      else if(rsc){ var m=rsc.replace(/\s/g,"").split("-"); if(m.length===2){ rp.hg=m[0]; rp.ag=m[1]; } }
+      return rp;
+    }
     if(type==="goal"){
       var tm=opt("gteam");
       var p={team:tm.value||"", code:tm.getAttribute("data-code")||"", tc:tm.getAttribute("data-color")||"#1E9B4B", tag:val("gtag")||"Sportacle", home:"1"};
@@ -280,7 +331,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(val("rhead")) pp.label=val("rhead");
     return pp;
   }
-  function rtype(){ return type==="goal"?"goal":(type==="whowins"?"whowins":(type==="stats"?"stats":"final")); }
+  function rtype(){ return type==="goal"?"goal":type==="whowins"?"whowins":type==="stats"?"stats":type==="roast"?"verdict":"final"; }
   var statusEl=document.getElementById("status");
 
   // ---- Stats: pull a team's last completed match + per-player stats from ESPN ----
@@ -413,6 +464,26 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
   function numS(en,n){ var a=en.stats||[]; for(var i=0;i<a.length;i++){ if(a[i].name===n){ var v=parseFloat(a[i].displayValue!=null?a[i].displayValue:a[i].value); return isFinite(v)?v:0; } } return 0; }
   function prov(b,home,hs,as){ var my=home?hs:as,opp=home?as:hs; var p={P:b.P+1,W:b.W,D:b.D,L:b.L,GD:b.GD+(my-opp),Pts:b.Pts,GF:b.GF+my}; if(my>opp){p.W++;p.Pts+=3;}else if(my<opp){p.L++;}else{p.D++;p.Pts++;} return p; }
   function liveGames(d){ return (d.events||[]).filter(function(e){return ((((e.competitions||[])[0]||{}).status||{}).type||{}).state==="in";}).map(function(e){ var c=e.competitions[0].competitors, hm=c.filter(function(x){return x.homeAway==="home";})[0], aw=c.filter(function(x){return x.homeAway==="away";})[0]; return {h:hm.team.displayName,a:aw.team.displayName,hs:parseInt(hm.score||"0",10)||0,as:parseInt(aw.score||"0",10)||0}; }); }
+  // ---- Who's Cooked: rank teams closest to a group-stage exit (fewest pts, worst GD) ----
+  function drawCooked(){
+    statusEl.textContent="Reading the standings…";
+    return fetch(STANDINGS_URL).then(function(r){return r.json();}).then(function(d){
+      var teams=[];
+      (d.children||[]).forEach(function(g){
+        (((g.standings||{}).entries)||[]).forEach(function(en){
+          teams.push({name:(en.team||{}).displayName||"", pts:numS(en,"points"), gd:numS(en,"pointDifferential"), gp:numS(en,"gamesPlayed")});
+        });
+      });
+      teams=teams.filter(function(t){return t.gp>0;});
+      teams.sort(function(a,b){ return (a.pts-b.pts)||(a.gd-b.gd); });
+      var rows=teams.slice(0,9).map(function(t){
+        return {name:t.name, code:teamCode(t.name), color:teamColor(t.name),
+                value:t.pts+(t.pts===1?" PT":" PTS"), raw:(60-(t.pts*10+t.gd))};
+      });
+      var params={title:"Who's Cooked",subtitle:"Closest to a group-stage exit",footnote:"World Cup 2026",rows:rows};
+      return window.SportacleRender.renderTo(cv,"cooked",params,2).then(function(){ if(!busy) statusEl.textContent=rows.length+" teams on the brink"; });
+    }).catch(function(e){ statusEl.textContent="Couldn't load standings: "+e; });
+  }
   function drawStandingsCard(){
     var gname=opt("sgroup").value; if(!gname) return Promise.resolve();
     statusEl.textContent="Loading standings…";
@@ -555,6 +626,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(type==="live"){ return; }
     if(type==="infographic"){ drawInfographic(); return; }
     if(type==="standings"){ drawStandingsCard(); return; }
+    if(type==="cooked"){ drawCooked(); return; }
     render().then(function(){ if(!busy) statusEl.textContent="Preview updated."; }).catch(function(e){ statusEl.textContent="Render error: "+e; });
   }
   function update(){ clearTimeout(t); t=setTimeout(draw,120); }
@@ -563,11 +635,13 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       b.addEventListener("click",function(){
         document.querySelectorAll("#seg button").forEach(function(x){x.classList.remove("on");});
         b.classList.add("on"); type=b.getAttribute("data-type");
-        document.getElementById("resultFields").classList.toggle("hide", type==="goal"||type==="stats"||type==="infographic"||type==="standings"||type==="live");
+        document.getElementById("resultFields").classList.toggle("hide", type!=="half"&&type!=="final"&&type!=="whowins");
         document.getElementById("goalFields").classList.toggle("hide", type!=="goal");
         document.getElementById("statsFields").classList.toggle("hide", type!=="stats");
         document.getElementById("infographicFields").classList.toggle("hide", type!=="infographic");
         document.getElementById("standingsCardFields").classList.toggle("hide", type!=="standings");
+        document.getElementById("roastFields").classList.toggle("hide", type!=="roast");
+        document.getElementById("cookedFields").classList.toggle("hide", type!=="cooked");
         document.getElementById("liveFields").classList.toggle("hide", type!=="live");
         document.getElementById("scoreRow").classList.toggle("hide", type==="whowins");
         document.getElementById("stage").hidden=(type==="live");
@@ -583,6 +657,8 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     });
     document.getElementById("metric").addEventListener("change", function(){ fillInfoCopy(); update(); });
     document.getElementById("infoReset").addEventListener("click", function(){ fillInfoCopy(); update(); });
+    document.getElementById("verdict").addEventListener("change", function(){ fillVerdictCopy(); update(); });
+    document.getElementById("roastReset").addEventListener("click", function(){ fillVerdictCopy(); update(); });
     document.getElementById("liveToggle").addEventListener("click", liveToggle);
     document.getElementById("steam").addEventListener("change", function(){ syncStatsKits(); loadStatsTeam(); });
     document.getElementById("gteam").addEventListener("change", function(){ syncGoalKits(); if(type==="goal") loadGoalSquad(); });
@@ -609,6 +685,8 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(type==="infographic"){ return "sportacle-"+(opt("metric").value||"funstat")+"-"+ts+".png"; }
     if(type==="standings"){ return "sportacle-standings-"+(opt("sgroup").value||"x").replace(/\s+/g,"").toLowerCase()+"-"+ts+".png"; }
     if(type==="stats"){ return "sportacle-stats-"+(opt("steam").getAttribute("data-code")||"x")+"-"+ts+".png"; }
+    if(type==="roast"){ return "sportacle-roast-"+(opt("verdict").value||"x")+"-"+ts+".png"; }
+    if(type==="cooked"){ return "sportacle-cooked-"+ts+".png"; }
     return "sportacle-"+type+"-"+(opt("home").getAttribute("data-code")||"x")+"-"+(opt("away").getAttribute("data-code")||"x")+"-"+(val("hg")||0)+"-"+(val("ag")||0)+"-"+ts+".png";
   }
   var dlBtn=document.getElementById("dl");
@@ -616,7 +694,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(busy) return; busy=true; dlBtn.disabled=true;
     var name=fname(); statusEl.textContent="Rendering...";
     clearTimeout(t);
-    (type==="infographic"?drawInfographic():type==="standings"?drawStandingsCard():render()).then(function(){
+    (type==="infographic"?drawInfographic():type==="standings"?drawStandingsCard():type==="cooked"?drawCooked():render()).then(function(){
       cv.toBlob(function(blob){
         if(!blob){ busy=false; dlBtn.disabled=false; statusEl.textContent="Export failed."; return; }
         var url=URL.createObjectURL(blob), a=document.createElement("a");

@@ -165,6 +165,64 @@
     ctx.fillStyle = INK; ctx.font = font('700', 86, KH); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('VS', cx, cy + 4);
   }
+
+  // ---- VERDICT (roast/meme cards: one flag-forward layout, many stamps) ----
+  function fitFont(ctx, text, weight, size, fam, maxW, lsp) {
+    ctx.font = font(weight, size, fam); ls(ctx, lsp || 0);
+    while (ctx.measureText(text).width > maxW && size > 15) { size -= 2; ctx.font = font(weight, size, fam); }
+    ls(ctx, 0); return size;
+  }
+  function drawStamp(ctx, cx, cy, text, color, scale) {
+    scale = scale || 1; text = String(text || '').toUpperCase();
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(-7 * Math.PI / 180);
+    var fs = 66 * scale; ctx.font = font('800', fs, BR); ls(ctx, 5);
+    while (ctx.measureText(text).width + 80 * scale > 940 && fs > 30) { fs -= 3; ctx.font = font('800', fs, BR); }
+    var tw = ctx.measureText(text).width, padX = 40 * scale, w = tw + padX * 2, h = 108 * scale;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = 34 * scale; ctx.shadowOffsetY = 12 * scale;
+    ctx.fillStyle = 'rgba(244,242,235,.93)'; rrect(ctx, -w / 2, -h / 2, w, h, 16 * scale); ctx.fill(); ctx.restore();
+    ctx.lineWidth = 6 * scale; ctx.strokeStyle = color; rrect(ctx, -w / 2, -h / 2, w, h, 16 * scale); ctx.stroke();
+    ctx.lineWidth = 2.5 * scale; rrect(ctx, -w / 2 + 11 * scale, -h / 2 + 11 * scale, w - 22 * scale, h - 22 * scale, 9 * scale); ctx.stroke();
+    ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, 2.5, 2 * scale); ls(ctx, 0);
+    ctx.restore();
+  }
+  function drawSideMark(ctx, cx, cy, txt, color) {
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 26; ctx.shadowOffsetY = 8;
+    ctx.fillStyle = color || '#C8102E'; ctx.beginPath(); ctx.arc(cx, cy, 80, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(255,255,255,.92)'; ctx.beginPath(); ctx.arc(cx, cy, 71, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = font('800', 94, BR); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(txt || 'L').toUpperCase(), cx, cy + 4);
+  }
+  function renderVerdict(ctx, p, F) {
+    drawVsBg(ctx, p, F);
+    var hasScore = (p.hg != null && p.hg !== '' && p.ag != null && p.ag !== '');
+    if (p.markA || p.markB) {
+      if (p.markA) drawSideMark(ctx, 262, 452, p.markA, '#C8102E');
+      if (p.markB) drawSideMark(ctx, 818, 452, p.markB, '#C8102E');
+    } else if (hasScore) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 26; ctx.shadowOffsetY = 6; ctx.fillStyle = '#fff';
+      ctx.font = font('700', 168, KH); ctx.fillText(String(p.hg) + '  -  ' + String(p.ag), 540, 452);
+      ctx.restore();
+    }
+    drawStamp(ctx, 540, 628, p.stamp || 'VERDICT', p.stampColor || '#C8102E', 1.06);
+    if (p.headline) {
+      var hs = fitFont(ctx, String(p.headline).toUpperCase(), '800', 31, BR, W - 170, 4);
+      pill(ctx, 540, W - 250, String(p.headline).toUpperCase(), {
+        font: font('800', hs, BR), lsp: 4, padX: 30, h: 58, bg: INK, color: '#fff',
+        shadow: { c: 'rgba(0,0,0,.3)', b: 26, oy: 10 }
+      });
+    }
+    if (p.receipt) {
+      var rs = fitFont(ctx, String(p.receipt).toUpperCase(), '700', 23, BR, W - 150, 2);
+      pill(ctx, 540, W - 184, String(p.receipt).toUpperCase(), {
+        font: font('700', rs, BR), lsp: 2, padX: 24, h: 46, bg: 'rgba(255,255,255,.94)', color: INK,
+        shadow: { c: 'rgba(0,0,0,.22)', b: 22, oy: 8 }
+      });
+    }
+    drawBrand(ctx, p.acolor);
+  }
   function drawScore(ctx, p) {
     var cx = 540, cy = 560;
     var d1 = String(p.hg), d2 = String(p.ag);
@@ -499,7 +557,7 @@
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     return ensureFonts().then(function () {
       if (type === 'stats') { renderStats(ctx, p); return; }
-      if (type === 'infographic' || type === 'standings') {
+      if (type === 'infographic' || type === 'standings' || type === 'cooked') {
         var codes = (p.rows || []).map(function (r) { return r.code; });
         return Promise.all(codes.map(loadFlag)).then(function (imgs) {
           var fmap = {}; codes.forEach(function (c, i) { fmap[c] = imgs[i]; });
@@ -513,7 +571,7 @@
       }
       return Promise.all([loadFlag(p.ac), loadFlag(p.bc)]).then(function (f) {
         var F = { a: f[0], b: f[1] };
-        if (type === 'whowins') renderWhoWins(ctx, p, F); else renderFinal(ctx, p, F);
+        if (type === 'whowins') renderWhoWins(ctx, p, F); else if (type === 'verdict') renderVerdict(ctx, p, F); else renderFinal(ctx, p, F);
       });
     });
   }

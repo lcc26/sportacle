@@ -159,9 +159,11 @@ def surname(full):
 
 # ---- feed state --------------------------------------------------------------
 LOCK = threading.Lock()
-snap = {}     # eventId -> {state, home, away}
-seen = set()  # dedup keys
-cards = []    # newest first
+snap = {}        # eventId -> {state, home, away}
+seen = set()     # dedup keys
+cards = []       # newest first
+ht_scores = {}   # eventId -> [hs, as] captured at halftime (for Bottled It)
+scorelines = set()  # sorted "min-max" strings seen this tournament (for Scorigami)
 seeding = True
 
 def save_state():
@@ -171,16 +173,18 @@ def save_state():
             os.makedirs(d, exist_ok=True)
         tmp = STATE_PATH + ".tmp"
         with open(tmp, "w") as f:
-            json.dump({"snap": snap, "seen": list(seen), "cards": cards}, f)
+            json.dump({"snap": snap, "seen": list(seen), "cards": cards,
+                       "ht": ht_scores, "scorelines": list(scorelines)}, f)
         os.replace(tmp, STATE_PATH)  # atomic
     except Exception as e:
         print("[state] save failed (%s): %s" % (STATE_PATH, e), flush=True)
 def load_state():
-    global snap, seen, cards, seeding
+    global snap, seen, cards, ht_scores, scorelines, seeding
     try:
         with open(STATE_PATH) as f:
             d = json.load(f)
         snap = d.get("snap", {}); seen = set(d.get("seen", [])); cards = d.get("cards", [])
+        ht_scores = d.get("ht", {}); scorelines = set(d.get("scorelines", []))
         seeding = False  # we already have prior state; don't retro-emit
         print("[state] loaded %d cards / %d seen from %s" % (len(cards), len(seen), STATE_PATH), flush=True)
     except FileNotFoundError:
@@ -232,6 +236,109 @@ def emit_goal(ev, side):
     add_card(key, "Goal", "goal", p, team_name(scored) + (" · " + p.get("scorer", "") if p.get("scorer") else ""),
              ev["home"]["name"] + " v " + ev["away"]["name"])
 
+# ---- roast verdicts -----------------------------------------------------------
+def _stat_int(stats_list, name):
+    for x in stats_list or []:
+        if x.get("name") == name:
+            try:
+                return int(float(x.get("displayValue") or x.get("value") or 0))
+            except (TypeError, ValueError):
+                return 0
+    return 0
+
+def team_stats(ev):
+    out = {}
+    try:
+        sm = get_json(ESPN + "summary?event=" + ev["id"])
+    except Exception:
+        return out
+    for ros in (sm.get("rosters") or []):
+        tname = (ros.get("team") or {}).get("displayName", "")
+        agg = out.setdefault(canon(tname), {"shots": 0, "sot": 0, "yel": 0, "red": 0, "goals": 0})
+        for q in (ros.get("roster") or []):
+            st = q.get("stats") or []
+            agg["shots"] += _stat_int(st, "totalShots"); agg["sot"] += _stat_int(st, "shotsOnTarget")
+            agg["yel"] += _stat_int(st, "yellowCards"); agg["red"] += _stat_int(st, "redCards")
+            agg["goals"] += _stat_int(st, "totalGoals")
+    return out
+
+_stand_cache = {"t": 0.0, "wins": {}}
+def winless_map():
+    now = time.time()
+    if now - _stand_cache["t"] < 300 and _stand_cache["wins"]:
+        return _stand_cache["wins"]
+    try:
+        d = get_json(STANDINGS_URL)
+        m = {}
+        for g in d.get("children", []):
+            for en in ((g.get("standings") or {}).get("entries") or []):
+                m[canon((en.get("team") or {}).get("displayName", ""))] = _stat_int(en.get("stats"), "wins")
+        if m:
+            _stand_cache["t"] = now; _stand_cache["wins"] = m
+        return m
+    except Exception:
+        return _stand_cache["wins"]
+
+def verdict_card(ev, vid, stamp, color, headline, receipt, marks=False):
+    p = vs_params(ev)
+    p["stamp"] = stamp; p["stampColor"] = color
+    if headline:
+        p["headline"] = headline
+    if receipt:
+        p["receipt"] = receipt
+    if marks:
+        p.pop("hg", None); p.pop("ag", None); p["markA"] = "L"; p["markB"] = "L"
+    add_card("%s:v:%s" % (ev["id"], vid), "Roast", "verdict", p, stamp.title(),
+             ev["home"]["name"] + " v " + ev["away"]["name"])
+
+def record_scoreline(ev):
+    hs, as_ = ev["home"]["score"] or 0, ev["away"]["score"] or 0
+    scorelines.add("%d-%d" % (min(hs, as_), max(hs, as_)))
+
+def emit_verdicts(ev):
+    hs, as_ = ev["home"]["score"] or 0, ev["away"]["score"] or 0
+    hn, an_ = team_name(ev["home"]["name"]), team_name(ev["away"]["name"])
+    total, margin, draw = hs + as_, abs(hs - as_), hs == as_
+    # Scorigami: a sorted scoreline not seen before (skip the dull low-scoring ones)
+    key = "%d-%d" % (min(hs, as_), max(hs, as_))
+    fresh = key not in scorelines
+    scorelines.add(key)
+    if fresh and total >= 3:
+        verdict_card(ev, "scorigami", "SCORIGAMI", "#1E9B4B",
+                     "First %d-%d of the tournament" % (max(hs, as_), min(hs, as_)),
+                     "A scoreline we had not seen yet")
+    if margin >= 4:
+        win, lose = (hn, an_) if hs > as_ else (an_, hn)
+        verdict_card(ev, "mercy", "MERCY RULE", "#C8102E",
+                     "%s put %s to bed" % (win, lose), "Somebody call it off")
+    if draw and total <= 2:
+        verdict_card(ev, "bore", "BORE DRAW", "#C8102E",
+                     "Mutually assured mediocrity", "90 minutes you will never get back")
+    if draw:
+        wm = winless_map(); ch, ca = canon(ev["home"]["name"]), canon(ev["away"]["name"])
+        if wm and wm.get(ch, 1) == 0 and wm.get(ca, 1) == 0:
+            verdict_card(ev, "doublel", "NOBODY WINS", "#C8102E",
+                         "A point that helps neither", "Both still without a win", marks=True)
+    ht = ht_scores.get(ev["id"])
+    if ht and ht[0] != ht[1]:
+        led_home = ht[0] > ht[1]
+        bottler = hn if (led_home and not (hs > as_)) else (an_ if ((not led_home) and not (as_ > hs)) else None)
+        if bottler:
+            verdict_card(ev, "bottled", "BOTTLED IT", "#C8102E",
+                         "%s led at the half. Then this." % bottler, "A lead is not a guarantee")
+    ts = team_stats(ev)
+    if ts:
+        for side in (ev["home"]["name"], ev["away"]["name"]):
+            s = ts.get(canon(side))
+            if s and s["shots"] >= 15 and s["goals"] == 0:
+                verdict_card(ev, "allergic", "ALLERGIC TO THE NET", "#ED2939",
+                             "All shots, no end product", "%s: %d shots, 0 goals" % (team_name(side), s["shots"]))
+                break
+        cards_total = sum((v["yel"] + v["red"]) for v in ts.values())
+        if cards_total >= 8:
+            verdict_card(ev, "fight", "THAT WASN'T FOOTBALL", "#C8102E",
+                         "More cards than chances", "%d cards shown" % cards_total)
+
 def detect(evs, seed):
     for ev in evs:
         prev = snap.get(ev["id"])
@@ -248,6 +355,7 @@ def detect(evs, seed):
                     emit_goal(ev, "away")
             if is_half(ev) and (ev["id"] + ":ht") not in seen:
                 seen.add(ev["id"] + ":ht")
+                ht_scores[ev["id"]] = [hs, as_]   # capture the halftime score (for Bottled It)
                 if not seed:
                     emit_vs(ev, "half", {"label": "Half Time", "lc": "#FFC400"}, "Half")
         elif ev["state"] == "post" or ev["completed"]:
@@ -255,6 +363,9 @@ def detect(evs, seed):
                 seen.add(ev["id"] + ":ft")
                 if not seed:
                     emit_vs(ev, "final", {"label": "Full Time"}, "Final")
+                    emit_verdicts(ev)
+                else:
+                    record_scoreline(ev)   # seed: remember the scoreline so Scorigami stays accurate
         snap[ev["id"]] = {"state": ev["state"], "home": hs, "away": as_}
 
 def poll_loop():
