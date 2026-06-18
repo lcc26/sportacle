@@ -32,7 +32,7 @@ header b{font-family:"Space Grotesk";font-weight:700;font-size:19px;letter-spaci
 header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600}
 .layout{display:grid;grid-template-columns:380px 1fr;gap:0;min-height:calc(100vh - 61px)}
 .controls{padding:22px 24px;border-right:1px solid var(--line);overflow:auto}
-.seg{display:flex;gap:6px;background:#0E1116;border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:22px}
+.seg{display:flex;flex-wrap:wrap;gap:6px;background:#0E1116;border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:22px}
 .seg button{flex:1;padding:10px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-weight:700;font-family:"Space Grotesk";cursor:pointer;letter-spacing:.5px}
 .seg button.on{background:var(--accent);color:#fff}
 .field{margin-bottom:16px}
@@ -75,6 +75,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <button data-type="final" class="on">Final</button>
         <button data-type="whowins">Who Wins</button>
         <button data-type="stats">Stats</button>
+        <button data-type="infographic">Fun Stats</button>
       </div>
 
       <!-- result fields (final + half) -->
@@ -106,6 +107,12 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <div class="field"><label>Player (auto-loaded from last match)</label><select id="splayer"><option value="">Pick a team</option></select></div>
         <label class="chk"><input type="checkbox" id="smotm"> Man of the Match</label>
         <div class="minfo" id="matchinfo"></div>
+      </div>
+
+      <!-- infographic fields -->
+      <div id="infographicFields" class="hide">
+        <div class="field"><label>Fun stat</label><select id="metric"></select></div>
+        <div class="minfo" id="infonote">Pulls every completed match. First load takes a few seconds.</div>
       </div>
 
       <button class="dl" id="dl">Download PNG (1080x1080)</button>
@@ -142,7 +149,10 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       setSel("home","England"); setSel("away","Croatia");
       setSel("gteam","England"); setSel("gvs","Croatia"); setSel("steam","England");
       document.getElementById("hg").value="4"; document.getElementById("ag").value="2";
+      var mo=document.getElementById("metric"); mo.innerHTML=Object.keys(METRICS).map(function(k){return '<option value="'+k+'">'+METRICS[k].title+'</option>';}).join("");
       wire(); draw();
+      var demo=new URLSearchParams(location.search).get("demo");
+      if(demo){ var db=document.querySelector('#seg button[data-type="'+demo+'"]'); if(db) db.click(); }
     });
   }
   function fillSelect(id, blankFirst){
@@ -240,19 +250,84 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     }).catch(function(){ pl.innerHTML='<option value="">Load failed</option>'; statusEl.textContent="ESPN load failed."; });
   }
 
+  // ---- Infographic: aggregate every completed match into per-player totals; each
+  // "fun stat" is a formula over that aggregate (cached, so switching metrics is
+  // instant; ages fetched lazily only for the age-based metric). ----
+  var aggCache=null, lastInfoParams=null;
+  function aggregate(){
+    if(aggCache) return Promise.resolve(aggCache);
+    return fetch(ESPN+"scoreboard?dates=20260611-"+ymdU(Date.now()+864e5)).then(function(r){return r.json();}).then(function(d){
+      var ids=(d.events||[]).filter(function(e){return ((((e.competitions||[])[0]||{}).status||{}).type||{}).completed;}).map(function(e){return e.id;});
+      return Promise.all(ids.map(function(id){ return fetch(ESPN+"summary?event="+id).then(function(r){return r.json();}).catch(function(){return null;}); }));
+    }).then(function(sums){
+      var P={};
+      sums.forEach(function(sm){ if(!sm)return;
+        (sm.rosters||[]).forEach(function(ros){ var team=(ros.team||{}).displayName;
+          (ros.roster||[]).forEach(function(q){ var s={}; (q.stats||[]).forEach(function(x){ s[x.name]=parseInt(x.displayValue||"0",10)||0; });
+            var id=q.athlete.id, dd=P[id]||(P[id]={id:id,name:q.athlete.displayName,team:team,goals:0,shots:0,sot:0,assists:0,fouls:0,yellows:0,reds:0,saves:0,conceded:0});
+            dd.goals+=s.totalGoals||0; dd.shots+=s.totalShots||0; dd.sot+=s.shotsOnTarget||0; dd.assists+=s.goalAssists||0;
+            dd.fouls+=s.foulsCommitted||0; dd.yellows+=s.yellowCards||0; dd.reds+=s.redCards||0; dd.saves+=s.saves||0; dd.conceded+=s.goalsConceded||0;
+          });
+        });
+      });
+      aggCache=Object.keys(P).map(function(k){return P[k];}); return aggCache;
+    });
+  }
+  function loadAges(list){ return Promise.all(list.map(function(p){
+    if(p.age!=null) return Promise.resolve();
+    return fetch("https://site.api.espn.com/apis/common/v3/sports/soccer/fifa.world/athletes/"+p.id).then(function(r){return r.json();}).then(function(ad){ p.age=((ad.athlete||ad)||{}).age||null; }).catch(function(){p.age=null;});
+  })); }
+  function teamCode(espn){ var c=canon(espn); for(var i=0;i<TEAMS.length;i++){ if(canon(TEAMS[i].name)===c) return TEAMS[i].code; } return ""; }
+  function fmt1(n){ return (Math.round(n*10)/10).toFixed(1); }
+  function row(p,val,raw){ return {name:p.name, code:teamCode(p.team), value:String(val), raw:raw}; }
+  var METRICS={
+    lifetime:{title:"A Lifetime Per Goal",subtitle:"Age divided by goals — one strike, a whole career",accent:"#FFC400",needsAge:true,
+      build:function(A){ return A.filter(function(p){return p.goals>0&&p.age;}).map(function(p){return {p:p,r:p.age/p.goals};}).sort(function(a,b){return b.r-a.r;}).slice(0,9).map(function(x){return row(x.p,fmt1(x.r),x.r);}); }},
+    nogoal:{title:"All Shots, No Goal",subtitle:"Most shots without finding the net",accent:"#ED2939",
+      build:function(A){ return A.filter(function(p){return p.goals===0&&p.shots>0;}).sort(function(a,b){return b.shots-a.shots;}).slice(0,9).map(function(p){return row(p,p.shots,p.shots);}); }},
+    shotspergoal:{title:"Shots Per Goal",subtitle:"How many attempts each goal cost",accent:"#FF8A00",
+      build:function(A){ return A.filter(function(p){return p.goals>0;}).map(function(p){return {p:p,r:p.shots/p.goals};}).sort(function(a,b){return b.r-a.r;}).slice(0,9).map(function(x){return row(x.p,fmt1(x.r),x.r);}); }},
+    fouls:{title:"Foul Machine",subtitle:"The tournament's busiest hackers",accent:"#ED2939",
+      build:function(A){ return A.filter(function(p){return p.fouls>0;}).sort(function(a,b){return b.fouls-a.fouls;}).slice(0,9).map(function(p){return row(p,p.fouls,p.fouls);}); }},
+    cards:{title:"Card Collector",subtitle:"Yellow and red cards combined",accent:"#FFC400",
+      build:function(A){ return A.map(function(p){return {p:p,c:p.yellows+p.reds,r:p.yellows+p.reds*3};}).filter(function(x){return x.c>0;}).sort(function(a,b){return b.r-a.r;}).slice(0,9).map(function(x){return row(x.p,x.c,x.c);}); }},
+    assists:{title:"Assist Kings",subtitle:"Most goals teed up for team-mates",accent:"#1E9B4B",
+      build:function(A){ return A.filter(function(p){return p.assists>0;}).sort(function(a,b){return b.assists-a.assists;}).slice(0,9).map(function(p){return row(p,p.assists,p.assists);}); }},
+    saves:{title:"The Wall",subtitle:"Most goalkeeper saves",accent:"#2E86DE",
+      build:function(A){ return A.filter(function(p){return p.saves>0;}).sort(function(a,b){return b.saves-a.saves;}).slice(0,9).map(function(p){return row(p,p.saves,p.saves);}); }}
+  };
+  function drawInfographic(){
+    var M=METRICS[opt("metric").value]; if(!M) return Promise.resolve();
+    statusEl.textContent="Crunching the numbers…";
+    return aggregate().then(function(A){
+      return (M.needsAge?loadAges(A.filter(function(p){return p.goals>0;})):Promise.resolve()).then(function(){
+        var rows=M.build(A);
+        lastInfoParams={title:M.title,subtitle:M.subtitle,footnote:"Sportacle Index · WC 2026",accent:M.accent,rows:rows};
+        return window.SportacleRender.renderTo(cv,"infographic",lastInfoParams,2).then(function(){ if(!busy) statusEl.textContent=rows.length+" players · "+M.title; });
+      });
+    }).catch(function(e){ statusEl.textContent="Couldn't load data: "+e; });
+  }
+
   // Native canvas render = the preview AND (re-run) the download. No iframe, no
   // html-to-image, no foreignObject, no network at capture: bulletproof.
-  function render(){ return window.SportacleRender.renderTo(cv, rtype(), buildParams(), 2); }
-  function draw(){ render().then(function(){ if(!busy) statusEl.textContent="Preview updated."; }).catch(function(e){ statusEl.textContent="Render error: "+e; }); }
+  function render(){
+    if(type==="infographic") return window.SportacleRender.renderTo(cv,"infographic", lastInfoParams||{rows:[]}, 2);
+    return window.SportacleRender.renderTo(cv, rtype(), buildParams(), 2);
+  }
+  function draw(){
+    if(type==="infographic"){ drawInfographic(); return; }
+    render().then(function(){ if(!busy) statusEl.textContent="Preview updated."; }).catch(function(e){ statusEl.textContent="Render error: "+e; });
+  }
   function update(){ clearTimeout(t); t=setTimeout(draw,120); }
   function wire(){
     document.querySelectorAll("#seg button").forEach(function(b){
       b.addEventListener("click",function(){
         document.querySelectorAll("#seg button").forEach(function(x){x.classList.remove("on");});
         b.classList.add("on"); type=b.getAttribute("data-type");
-        document.getElementById("resultFields").classList.toggle("hide", type==="goal"||type==="stats");
+        document.getElementById("resultFields").classList.toggle("hide", type==="goal"||type==="stats"||type==="infographic");
         document.getElementById("goalFields").classList.toggle("hide", type!=="goal");
         document.getElementById("statsFields").classList.toggle("hide", type!=="stats");
+        document.getElementById("infographicFields").classList.toggle("hide", type!=="infographic");
         document.getElementById("scoreRow").classList.toggle("hide", type==="whowins");
         if(type==="stats" && !statsData){ loadStatsTeam(); } else { update(); }
       });
@@ -273,6 +348,8 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       if(slug(val("gmin"))) parts.push(slug(val("gmin")));
       return parts.join("-")+"-"+ts+".png";
     }
+    if(type==="infographic"){ return "sportacle-"+(opt("metric").value||"funstat")+"-"+ts+".png"; }
+    if(type==="stats"){ return "sportacle-stats-"+(opt("steam").getAttribute("data-code")||"x")+"-"+ts+".png"; }
     return "sportacle-"+type+"-"+(opt("home").getAttribute("data-code")||"x")+"-"+(opt("away").getAttribute("data-code")||"x")+"-"+(val("hg")||0)+"-"+(val("ag")||0)+"-"+ts+".png";
   }
   var dlBtn=document.getElementById("dl");
@@ -280,7 +357,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(busy) return; busy=true; dlBtn.disabled=true;
     var name=fname(); statusEl.textContent="Rendering...";
     clearTimeout(t);
-    render().then(function(){
+    (type==="infographic"?drawInfographic():render()).then(function(){
       cv.toBlob(function(blob){
         if(!blob){ busy=false; dlBtn.disabled=false; statusEl.textContent="Export failed."; return; }
         var url=URL.createObjectURL(blob), a=document.createElement("a");
