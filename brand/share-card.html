@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1200px;height:630px;overflow:hidden}
+.card{position:relative;width:1200px;height:630px;overflow:hidden;color:#fff;font-family:"Space Grotesk",sans-serif;
+  background:radial-gradient(820px 620px at 80% 22%, #16223a, #0a0e16 72%)}
+.ribbon{position:absolute;left:0;right:0;bottom:0;height:14px;
+  background:linear-gradient(90deg,#1E9B4B,#FFC400,#0A3478,#ED2939,#1E9B4B)}
+.split{position:absolute;right:0;top:0;width:360px;height:630px;opacity:.94;
+  clip-path:polygon(42% 0,100% 0,100% 100%,0 100%);
+  background:linear-gradient(135deg,#1E9B4B 0 50%,#0A3478 50% 100%)}
+.vsorb{position:absolute;right:128px;top:255px;width:120px;height:120px;border-radius:50%;background:#fff;color:#0a0e16;
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:42px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.brand{position:absolute;left:66px;top:60px;display:flex;align-items:center;gap:20px}
+.orb{width:60px;height:60px;border-radius:50%;background:conic-gradient(from 212deg,#1E9B4B,#FFC400,#0A3478,#ED2939,#1E9B4B);
+  box-shadow:inset 0 0 0 6px rgba(255,255,255,.05)}
+.bname{font-weight:700;font-size:52px;letter-spacing:.5px;text-transform:uppercase}
+.tagline{position:absolute;left:66px;top:208px;font-weight:700;font-size:64px;line-height:1.06;letter-spacing:-1.6px;max-width:860px}
+.tagline em{font-style:normal;color:#FF4D5E}
+.sub{position:absolute;left:68px;top:438px;font-family:"Inter",sans-serif;font-weight:500;font-size:25px;color:#9AA7B8;letter-spacing:.3px}
+.url{position:absolute;left:68px;bottom:60px;display:inline-flex;align-items:center;gap:13px;
+  background:#FFC400;color:#0a0e16;font-weight:700;font-size:34px;padding:14px 28px;border-radius:999px;letter-spacing:.2px;
+  box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.url .dot{width:14px;height:14px;border-radius:50%;background:#0a0e16}
+</style></head>
+<body><div class="card">
+  <div class="split"></div>
+  <div class="vsorb">VS</div>
+  <div class="brand"><span class="orb"></span><span class="bname">Sportacle</span></div>
+  <div class="tagline">Top your group.<br>Now meet <em>who's waiting</em>.</div>
+  <div class="sub">World Cup 2026 knockout forecasts, updated as results land</div>
+  <div class="url"><span class="dot"></span>gosportacle.com</div>
+  <div class="ribbon"></div>
+</div></body></html>
