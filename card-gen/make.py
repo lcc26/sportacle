@@ -10,6 +10,9 @@ Examples
   # Full-time result
   python3 card-gen/make.py final England Croatia 4-2 --note "Group L"
 
+  # Half-time result (amber label)
+  python3 card-gen/make.py half England Croatia 1-0 --note "Group L"
+
   # A goal, with scorer + minute and the running scoreline
   python3 card-gen/make.py goal England --scorer Kane --min 67 --score 2-1 --vs Croatia
 
@@ -89,20 +92,33 @@ def finish(out_png, stem):
         subprocess.run(["open", dl], check=False)
 
 
-def cmd_final(a):
+def _result(a, label, lc, stem_prefix):
+    """Shared scoreline card (final.html): FINAL and HALF differ only by the top
+    label and its accent color (amber for half-time, so HT reads differently at a
+    glance from FT in a feed)."""
     an, ac, acolor = resolve(a.home)
     bn, bc, bcolor = resolve(a.away)
     hg, ag = parse_score(a.score)
-    q = urllib.parse.urlencode({
+    params = {
         "an": an, "ac": ac, "acolor": acolor,
         "bn": bn, "bc": bc, "bcolor": bcolor,
-        "hg": hg, "ag": ag, "label": a.label, "note": a.note or "",
-    })
+        "hg": hg, "ag": ag, "label": label, "note": a.note or "",
+    }
+    if lc:
+        params["lc"] = lc
     os.makedirs(OUT_DIR, exist_ok=True)
-    stem = "final-%s-%s-%s-%s" % (ac, bc, hg, ag)
+    stem = "%s-%s-%s-%s-%s" % (stem_prefix, ac, bc, hg, ag)
     out = os.path.join(OUT_DIR, stem + ".png")
-    render("final.html", q, out)
+    render("final.html", urllib.parse.urlencode(params), out)
     finish(out, stem)
+
+
+def cmd_final(a):
+    _result(a, a.label, "", "final")
+
+
+def cmd_half(a):
+    _result(a, a.label, "#FFC400", "half")
 
 
 def cmd_goal(a):
@@ -136,6 +152,14 @@ def main():
     f.add_argument("--note", default="", help='lower band, e.g. "Group L"')
     f.add_argument("--label", default="Full Time", help='top label (default "Full Time")')
     f.set_defaults(func=cmd_final)
+
+    h = sub.add_parser("half", help="half-time result card (amber label)")
+    h.add_argument("home")
+    h.add_argument("away")
+    h.add_argument("score", help='e.g. 1-0  (home-away)')
+    h.add_argument("--note", default="", help='lower band, e.g. "Group L"')
+    h.add_argument("--label", default="Half Time", help='top label (default "Half Time")')
+    h.set_defaults(func=cmd_half)
 
     g = sub.add_parser("goal", help="goal card (one team hero)")
     g.add_argument("team")

@@ -60,7 +60,7 @@ body{font-family:var(--ui);-webkit-font-smoothing:antialiased;text-rendering:geo
   var fbase=(location.protocol==="file:")?"../flags/":"/flags/";
   var an=v("an","Team A"),bn=v("bn","Team B"),ac=v("ac",""),bc=v("bc","");
   var acolor=v("acolor","#1E9B4B"),bcolor=v("bcolor","#C8102E"),anote=v("anote",""),bnote=v("bnote","");
-  var hg=v("hg","0"),ag=v("ag","0"),label=v("label","Full Time"),note=v("note","");
+  var hg=v("hg","0"),ag=v("ag","0"),label=v("label","Full Time"),note=v("note",""),lc=v("lc","");
   var r=document.documentElement.style;r.setProperty("--teamA",acolor);r.setProperty("--teamB",bcolor);
   if(ac)document.getElementById("flagA").src=fbase+ac+".png";
   if(bc)document.getElementById("flagB").src=fbase+bc+".png";
@@ -71,7 +71,7 @@ body{font-family:var(--ui);-webkit-font-smoothing:antialiased;text-rendering:geo
   applyName("nameA",an);applyName("nameB",bn);
   document.getElementById("noteA").textContent=anote?anote.toUpperCase():"";
   document.getElementById("noteB").textContent=bnote?bnote.toUpperCase():"";
-  document.getElementById("label").textContent=label;
+  var lab=document.getElementById("label");lab.textContent=label;if(lc)lab.style.background=lc;
   document.getElementById("ga").textContent=hg;document.getElementById("gb").textContent=ag;
   if(note){var n=document.getElementById("note");n.textContent=note.toUpperCase();n.style.display="";}
 })();
