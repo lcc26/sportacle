@@ -93,6 +93,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       <!-- goal fields -->
       <div id="goalFields" class="hide">
         <div class="field"><label>Scoring team</label><select id="gteam"></select></div>
+        <div class="field"><label>Player (auto-fills scorer + number)</label><select id="gplayer"><option value="">— pick a team first —</option></select></div>
         <div class="field"><label>Scorer (optional)</label><input id="scorer" type="text" placeholder="e.g. Kane"></div>
         <div class="row">
           <div class="field"><label>Minute (optional)</label><input id="gmin" type="text" placeholder="e.g. 67"></div>
@@ -232,32 +233,46 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
   var ESPN="https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/";
   var statsData=null, statsCtx="";
   function ymdU(ms){ var d=new Date(ms); return ""+d.getUTCFullYear()+("0"+(d.getUTCMonth()+1)).slice(-2)+("0"+d.getUTCDate()).slice(-2); }
+  // Most recent match (completed OR in-progress) for a team -> {players, ctx}. Cached.
+  var squadCache={}, goalSquad=null;
+  function fetchSquad(tname){
+    if(squadCache[tname]) return Promise.resolve(squadCache[tname]);
+    var now=Date.now();
+    return fetch(ESPN+"scoreboard?dates="+ymdU(now-13*864e5)+"-"+ymdU(now+864e5)).then(function(r){return r.json();}).then(function(d){
+      var ev=null,best=0;
+      (d.events||[]).forEach(function(e){ var st=((((e.competitions||[])[0]||{}).status||{}).type)||{};
+        if(!(st.completed||st.state==="in")) return;
+        if(((e.competitions[0].competitors)||[]).some(function(c){return canon(c.team.displayName)===canon(tname);})){ var t=new Date(e.date).getTime(); if(t>best){best=t;ev=e;} }
+      });
+      if(!ev) return {players:[],ctx:""};
+      var cs=ev.competitions[0].competitors, me=cs.filter(function(c){return canon(c.team.displayName)===canon(tname);})[0], them=cs.filter(function(c){return c!==me;})[0];
+      var ctx=me.homeAway==="home"?(tname+" "+me.score+"-"+them.score+" "+them.team.displayName):(them.team.displayName+" "+them.score+"-"+me.score+" "+tname);
+      return fetch(ESPN+"summary?event="+ev.id).then(function(r){return r.json();}).then(function(sum){
+        var ros=(sum.rosters||[]).filter(function(tt){return canon(tt.team.displayName)===canon(tname);})[0];
+        var players=ros?(ros.roster||[]).filter(function(q){return q.starter||q.subbedIn||statOf(q,"appearances")==="1";}):[];
+        players.sort(function(a,b){ var x=a.starter?0:1,y=b.starter?0:1; if(x!==y)return x-y; return (a.formationPlace||99)-(b.formationPlace||99); });
+        var out={players:players,ctx:ctx}; squadCache[tname]=out; return out;
+      });
+    });
+  }
   function loadStatsTeam(){
     var tname=opt("steam").value; if(!tname) return;
     var pl=document.getElementById("splayer"); pl.innerHTML='<option value="">Loading…</option>';
     document.getElementById("matchinfo").textContent=""; statusEl.textContent="Pulling "+tname+"'s last match…"; statsData=null;
-    var now=Date.now();
-    fetch(ESPN+"scoreboard?dates="+ymdU(now-13*864e5)+"-"+ymdU(now+864e5)).then(function(r){return r.json();}).then(function(d){
-      var ev=null, best=0;
-      (d.events||[]).forEach(function(e){
-        var comp=(e.competitions||[])[0]||{}; if(!(((comp.status||{}).type)||{}).completed) return;
-        if((comp.competitors||[]).some(function(c){return canon(c.team.displayName)===canon(tname);})){ var t=new Date(e.date).getTime(); if(t>best){best=t; ev=e;} }
-      });
-      if(!ev){ pl.innerHTML='<option value="">No recent match</option>'; statusEl.textContent="No recent completed match for "+tname+"."; draw(); return; }
-      var comp=ev.competitions[0], cs=comp.competitors;
-      var me=cs.filter(function(c){return canon(c.team.displayName)===canon(tname);})[0], them=cs.filter(function(c){return c!==me;})[0];
-      statsCtx = me.homeAway==="home" ? (tname+" "+me.score+"-"+them.score+" "+them.team.displayName) : (them.team.displayName+" "+them.score+"-"+me.score+" "+tname);
-      return fetch(ESPN+"summary?event="+ev.id).then(function(r){return r.json();}).then(function(sum){
-        var ros=(sum.rosters||[]).filter(function(tt){return canon(tt.team.displayName)===canon(tname);})[0];
-        if(!ros){ pl.innerHTML='<option value="">Lineup unavailable</option>'; statusEl.textContent="Lineup unavailable."; draw(); return; }
-        var players=(ros.roster||[]).filter(function(q){return q.starter||q.subbedIn||statOf(q,"appearances")==="1";});
-        players.sort(function(a,b){ var x=a.starter?0:1,y=b.starter?0:1; if(x!==y)return x-y; return (a.formationPlace||99)-(b.formationPlace||99); });
-        statsData={team:tname, players:players};
-        pl.innerHTML=players.map(function(q,i){ return '<option value="'+i+'">#'+(q.jersey||"")+"  "+q.athlete.displayName+'</option>'; }).join("") || '<option value="">No players</option>';
-        document.getElementById("matchinfo").textContent="Last match: "+statsCtx;
-        statusEl.textContent="Loaded "+players.length+" players."; draw();
-      });
+    fetchSquad(tname).then(function(sq){
+      statsCtx=sq.ctx; statsData={team:tname,players:sq.players};
+      pl.innerHTML=sq.players.map(function(q,i){return '<option value="'+i+'">#'+(q.jersey||"")+"  "+q.athlete.displayName+'</option>';}).join("")||'<option value="">No players</option>';
+      document.getElementById("matchinfo").textContent=sq.ctx?("Last match: "+sq.ctx):"No recent match found.";
+      statusEl.textContent=sq.players.length?(sq.players.length+" players."):"No recent match."; draw();
     }).catch(function(){ pl.innerHTML='<option value="">Load failed</option>'; statusEl.textContent="ESPN load failed."; });
+  }
+  function loadGoalSquad(){
+    var tname=opt("gteam").value; if(!tname) return;
+    var pl=document.getElementById("gplayer"); pl.innerHTML='<option value="">Loading…</option>';
+    fetchSquad(tname).then(function(sq){
+      goalSquad=sq.players;
+      pl.innerHTML='<option value="">— pick to auto-fill —</option>'+sq.players.map(function(q,i){return '<option value="'+i+'">#'+(q.jersey||"")+"  "+q.athlete.displayName+'</option>';}).join("");
+    }).catch(function(){ pl.innerHTML='<option value="">(squad unavailable)</option>'; });
   }
 
   // ---- Infographic: aggregate every completed match into per-player totals; each
@@ -367,6 +382,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         document.getElementById("infographicFields").classList.toggle("hide", type!=="infographic");
         document.getElementById("standingsCardFields").classList.toggle("hide", type!=="standings");
         document.getElementById("scoreRow").classList.toggle("hide", type==="whowins");
+        if(type==="goal" && !goalSquad){ loadGoalSquad(); }
         if(type==="stats" && !statsData){ loadStatsTeam(); } else { update(); }
       });
     });
@@ -374,6 +390,15 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       el.addEventListener("input", update); el.addEventListener("change", update);
     });
     document.getElementById("steam").addEventListener("change", loadStatsTeam);
+    document.getElementById("gteam").addEventListener("change", function(){ if(type==="goal") loadGoalSquad(); });
+    document.getElementById("gplayer").addEventListener("change", function(){
+      var idx=opt("gplayer").value; if(idx===""||!goalSquad) return;
+      var q=goalSquad[parseInt(idx,10)]; if(!q) return;
+      var full=q.athlete.displayName||"", sur=full.split(" ").slice(1).join(" ")||full;
+      document.getElementById("scorer").value=sur;
+      document.getElementById("gjersey").value=q.jersey||"";
+      update();
+    });
   }
 
   // ---- download: re-render fresh, then canvas.toBlob (same-origin canvas never taints) ----

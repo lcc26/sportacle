@@ -234,7 +234,7 @@
     ctx.strokeStyle = '#ED2939'; ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(-40, 110); ctx.lineTo(110, -40); ctx.stroke();
     ctx.restore();
     // optional scorer jersey (upper-right), generated from the team color
-    if (p.jersey) drawJersey(ctx, 826, 392, 1.04, p.tc, shade(p.tc, 0.58), p.jersey);
+    if (p.jersey) drawJersey(ctx, 826, 392, 1.04, p.tc, shade(p.tc, 0.58), p.jersey, p.scorer);
     // tag
     ctx.font = font('800', 26, BR); ls(ctx, 6); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 10; ctx.fillStyle = '#fff';
@@ -315,7 +315,7 @@
   function hexA(h, a) { var c = hexRgb(h); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
 
   // ---- generated jersey (stylized kit in team colors) ----
-  function drawJersey(ctx, cx, cy, scale, c1, c2, num) {
+  function drawJersey(ctx, cx, cy, scale, c1, c2, num, name) {
     ctx.save();
     ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.translate(-150, -170);
     ctx.save();
@@ -333,11 +333,16 @@
     ctx.lineWidth = 9;
     ctx.beginPath(); ctx.moveTo(34, 126); ctx.lineTo(14, 64); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(266, 126); ctx.lineTo(286, 64); ctx.stroke();
-    // number on the chest
-    if (num) {
-      ctx.fillStyle = contrastInk(c1); ctx.font = font('700', 120, KH);
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(String(num), 150, 200);
+    // kit back: surname above number (reads like the back of the shirt)
+    ctx.fillStyle = contrastInk(c1); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (name) {
+      var kit = (String(name).split(' ').slice(1).join(' ') || String(name)).toUpperCase();
+      var nf = 42; ctx.font = font('700', nf, KH); ls(ctx, 1);
+      while (ctx.measureText(kit).width > 214 && nf > 22) { nf -= 2; ctx.font = font('700', nf, KH); }
+      ctx.fillText(kit, 150, 118); ls(ctx, 0);
+      if (num) { ctx.font = font('700', 110, KH); ctx.fillText(String(num), 150, 234); }
+    } else if (num) {
+      ctx.font = font('700', 120, KH); ctx.fillText(String(num), 150, 200);
     }
     ctx.restore();
   }
@@ -365,7 +370,7 @@
       top = 210;
     }
     // jersey hero
-    drawJersey(ctx, 540, top + 230, 1.15, c1, c2, p.jersey);
+    drawJersey(ctx, 540, top + 230, 1.15, c1, c2, p.jersey, p.player);
     // player name
     var name = String(p.player || 'Player').toUpperCase();
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#fff';
