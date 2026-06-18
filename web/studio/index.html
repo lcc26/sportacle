@@ -70,17 +70,18 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <button data-type="goal">Goal</button>
         <button data-type="half">Half</button>
         <button data-type="final" class="on">Final</button>
+        <button data-type="whowins">Who Wins</button>
       </div>
 
       <!-- result fields (final + half) -->
       <div id="resultFields">
         <div class="field"><label>Home team</label><select id="home"></select></div>
         <div class="field"><label>Away team</label><select id="away"></select></div>
-        <div class="row">
+        <div class="row" id="scoreRow">
           <div class="field"><label>Home goals</label><input id="hg" type="number" min="0" max="20" value="0"></div>
           <div class="field"><label>Away goals</label><input id="ag" type="number" min="0" max="20" value="0"></div>
         </div>
-        <div class="field"><label>Note (optional)</label><input id="note" type="text" placeholder="e.g. Group L"></div>
+        <div class="field"><label>Note / prompt (optional)</label><input id="note" type="text" placeholder="e.g. Group L  ·  or a Who-Wins prompt"></div>
       </div>
 
       <!-- goal fields -->
@@ -152,6 +153,13 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       if(sc && vs && vs.value){ p.score=sc; p.vs=vs.getAttribute("data-code")||""; }
       return p;
     }
+    if(type==="whowins"){
+      var wh=opt("home"), wa=opt("away");
+      var wp={an:wh.value||"", ac:wh.getAttribute("data-code")||"", acolor:wh.getAttribute("data-color")||"#1E9B4B",
+              bn:wa.value||"", bc:wa.getAttribute("data-code")||"", bcolor:wa.getAttribute("data-color")||"#C8102E"};
+      if(val("note")) wp.prompt=val("note");
+      return wp;
+    }
     var h=opt("home"), a=opt("away");
     var pp={an:h.value||"", ac:h.getAttribute("data-code")||"", acolor:h.getAttribute("data-color")||"#1E9B4B",
             bn:a.value||"", bc:a.getAttribute("data-code")||"", bcolor:a.getAttribute("data-color")||"#C8102E",
@@ -160,7 +168,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(type==="half"){ pp.label="Half Time"; pp.lc="#FFC400"; } else { pp.label="Full Time"; }
     return pp;
   }
-  function rtype(){ return type==="goal"?"goal":"final"; }
+  function rtype(){ return type==="goal"?"goal":(type==="whowins"?"whowins":"final"); }
   var statusEl=document.getElementById("status");
 
   // Native canvas render = the preview AND (re-run) the download. No iframe, no
@@ -175,6 +183,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         b.classList.add("on"); type=b.getAttribute("data-type");
         document.getElementById("resultFields").classList.toggle("hide", type==="goal");
         document.getElementById("goalFields").classList.toggle("hide", type!=="goal");
+        document.getElementById("scoreRow").classList.toggle("hide", type==="whowins");
         update();
       });
     });

@@ -99,8 +99,8 @@
     ctx.restore();
   }
 
-  // ---- FINAL / HALF ----
-  function renderFinal(ctx, p, F) {
+  // ---- shared VS background (halves + flags + scrims + seam + names) ----
+  function drawVsBg(ctx, p, F) {
     ctx.clearRect(0, 0, W, W);
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, W);
     // LEFT half (clip to diagonal), team-color fill + flag cover (object-position 100% 50%)
@@ -127,6 +127,10 @@
     // names
     drawName(ctx, p.an, 72, 'left');
     drawName(ctx, p.bn, W - 72, 'right');
+  }
+  // ---- FINAL / HALF ----
+  function renderFinal(ctx, p, F) {
+    drawVsBg(ctx, p, F);
     // FULL/HALF TIME pill
     pill(ctx, 540, 80, (p.label || 'Full Time').toUpperCase(), {
       font: font('800', 30, BR), lsp: 9, padX: 30, h: 52, bg: p.lc || '#fff', color: INK,
@@ -138,6 +142,28 @@
       shadow: { c: 'rgba(0,0,0,.22)', b: 30, oy: 12 }
     });
     drawBrand(ctx, p.acolor);
+  }
+  // ---- WHO WILL WIN (upcoming match, engagement) ----
+  function renderWhoWins(ctx, p, F) {
+    drawVsBg(ctx, p, F);
+    pill(ctx, 540, 80, 'WHO WILL WIN?', {
+      font: font('800', 30, BR), lsp: 7, padX: 30, h: 52, bg: '#FFC400', color: INK,
+      shadow: { c: 'rgba(0,0,0,.3)', b: 30, oy: 12 }
+    });
+    drawMedallion(ctx, 540, 560);
+    pill(ctx, 540, W - 188, (p.prompt || 'Reply with your prediction').toUpperCase(), {
+      font: font('800', 24, BR), lsp: 4, padX: 28, h: 46, bg: 'rgba(255,255,255,.94)', color: INK,
+      shadow: { c: 'rgba(0,0,0,.22)', b: 30, oy: 12 }
+    });
+    drawBrand(ctx, p.acolor);
+  }
+  function drawMedallion(ctx, cx, cy) {
+    var r = 92;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 16;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    ctx.lineWidth = 5; ctx.strokeStyle = INK; ctx.beginPath(); ctx.arc(cx, cy, r - 2.5, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = INK; ctx.font = font('700', 86, KH); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('VS', cx, cy + 4);
   }
   function drawScore(ctx, p) {
     var cx = 540, cy = 560;
@@ -292,7 +318,8 @@
         });
       }
       return Promise.all([loadFlag(p.ac), loadFlag(p.bc)]).then(function (f) {
-        renderFinal(ctx, p, { a: f[0], b: f[1] });
+        var F = { a: f[0], b: f[1] };
+        if (type === 'whowins') renderWhoWins(ctx, p, F); else renderFinal(ctx, p, F);
       });
     });
   }
