@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Sportacle Shifts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Khand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0E1116;--panel:#171C24;--line:#262D38;--ink:#F4F2EB;--muted:#9AA7B8;--amber:#FFC400;--green:#37C46A;--red:#ED6A78}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;min-height:100vh;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  header{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;background:rgba(14,17,22,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:9px;font-family:"Khand";font-weight:700;font-size:22px;letter-spacing:1px}
+  .orb{width:22px;height:22px;border-radius:50%;background:conic-gradient(from 210deg,#1E9B4B,#FFC400,#0A3478,#ED2939,#1E9B4B)}
+  .brand b{color:var(--amber);font-weight:700}
+  .navtog{display:inline-flex;gap:4px;background:#0E1116;border:1px solid var(--line);border-radius:10px;padding:4px}
+  .navtog a{padding:7px 13px;border-radius:7px;font-weight:700;font-size:13px;text-decoration:none;color:var(--muted);line-height:1}
+  .navtog a.on{background:var(--amber);color:#15171C}
+  main{max-width:760px;margin:0 auto;padding:18px}
+  .sub{color:var(--muted);font-size:13px;text-align:center;margin-bottom:18px}
+  .event{background:var(--panel);border:1px solid var(--line);border-radius:16px;margin-bottom:18px;overflow:hidden}
+  .ehead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .ehead .res{font-family:"Khand";font-weight:700;font-size:23px;letter-spacing:.4px}
+  .ehead .res small{color:var(--muted);font-weight:600;font-size:13px;letter-spacing:1px;text-transform:uppercase;font-family:"Barlow Semi Condensed";display:block}
+  .ehead .ago{color:var(--muted);font-size:12px;white-space:nowrap}
+  .chg{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid #1d232d}
+  .chg:first-child{border-top:0}
+  .chg img{width:30px;height:20px;border-radius:3px;flex:none;object-fit:cover;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+  .chg .tm{font-family:"Khand";font-weight:700;font-size:20px;min-width:118px}
+  .chg .mv{font-size:14px;color:var(--ink);flex:1}
+  .chg .mv .o{color:var(--muted);text-decoration:line-through;text-decoration-color:#55606e}
+  .chg .mv .n{font-weight:700}
+  .arr{color:var(--muted);margin:0 5px}
+  .flip{display:inline-block;font-family:"Barlow Semi Condensed";font-weight:800;font-size:11px;letter-spacing:1px;color:#15171C;background:var(--amber);border-radius:5px;padding:2px 7px;margin-left:8px;vertical-align:middle}
+  .delta{font-weight:700;font-size:13px}
+  .up{color:var(--green)}.down{color:var(--red)}
+  .empty{padding:70px 24px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:16px;font-size:15px}
+  .stat{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="orb"></span>SPORT<b>ACLE</b> SHIFTS</div>
+  <nav class="navtog"><a href="/studio/">Studio</a><a href="/live/">Live</a><a href="/shifts/" class="on">Shifts</a></nav>
+</header>
+<main>
+  <div class="sub" id="sub">Loading the board...</div>
+  <div id="list"><div class="empty">No shifts logged yet. As each result lands, the projected Round of 32 picture moves and the changes appear here.</div></div>
+</main>
+<script>
+(function(){
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
+  function ago(ts){var s=Math.max(0,Math.floor((Date.now()-ts)/1000));if(s<60)return s+"s ago";var m=Math.floor(s/60);if(m<60)return m+"m ago";var h=Math.floor(m/60);if(h<24)return h+"h ago";return Math.floor(h/24)+"d ago";}
+  function flag(code){return code?'<img src="/flags/'+esc(code)+'.png" alt="" loading="lazy">':'<span style="width:30px;flex:none"></span>';}
+  function render(d){
+    var sh=d.shifts||[];
+    document.getElementById("sub").innerHTML= sh.length
+      ? (sh.length+" recorded shift"+(sh.length>1?"s":"")+" &middot; tracking from the projections feed")
+      : "Tracking live. The next result that moves the board will show up here.";
+    if(!sh.length) return;
+    document.getElementById("list").innerHTML = sh.map(function(ev){
+      var rows = (ev.changes||[]).map(function(c){
+        var dlt = c.newProb - c.oldProb, dcls = dlt>0?"up":(dlt<0?"down":"");
+        var darr = dlt>0?"&#9650;":(dlt<0?"&#9660;":"");
+        var mv = c.flip
+          ? '<span class="o">'+esc(c.oldOpp)+' '+c.oldProb+'%</span> <span class="arr">&rarr;</span> <span class="n">'+esc(c.newOpp)+' '+c.newProb+'%</span><span class="flip">NEW FOE</span>'
+          : esc(c.newOpp)+': <span class="o">'+c.oldProb+'%</span> <span class="arr">&rarr;</span> <span class="n">'+c.newProb+'%</span> <span class="delta '+dcls+'">'+darr+' '+Math.abs(dlt)+'</span>';
+        return '<div class="chg">'+flag(c.code)+'<span class="tm">'+esc(c.team)+'</span><span class="mv">'+mv+'</span></div>';
+      }).join("");
+      return '<div class="event"><div class="ehead"><div class="res"><small>After</small>'+esc(ev.result||"a result")+'</div><div class="ago">'+ago(ev.ts)+'</div></div>'+rows+'</div>';
+    }).join("");
+  }
+  function poll(){ fetch("/shifts.json",{cache:"no-store"}).then(function(r){return r.json();}).then(render).catch(function(){document.getElementById("sub").textContent="Feed unreachable, retrying.";}); }
+  poll(); setInterval(poll, 30000);
+})();
+</script>
+</body>
+</html>

@@ -25,7 +25,15 @@ CTYPES = {".html": "text/html; charset=utf-8", ".js": "application/javascript", 
 ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/"
 SCOREBOARD = ESPN + "scoreboard"
 TEAMS_URL = "https://gosportacle.com/make/teams.json"
+STANDINGS_URL = "https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings?season=2026"
+PREDICTIONS_URL = "https://gosportacle.com/data/predictions.json"
 STATE_PATH = os.environ.get("STATE_PATH", "state.json")
+# Event-driven deploy: on full time, fire the GitHub workflow that re-runs the
+# engine + redeploys, so projections refresh within ~2 min of the whistle
+# (the */15 cron is unreliable). No-op until GITHUB_TOKEN is set on Railway.
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_REPO = os.environ.get("GITHUB_REPO", "lcc26/sportacle")
+GITHUB_WORKFLOW = os.environ.get("GITHUB_WORKFLOW", "update-predictions.yml")
 UA = {"User-Agent": "SportacleLiveWatcher/1.0 (+https://gosportacle.com)"}
 MAX_CARDS = 60
 KEEP_HOURS = 18
@@ -164,6 +172,8 @@ seen = set()     # dedup keys
 cards = []       # newest first
 ht_scores = {}   # eventId -> [hs, as] captured at halftime (for Bottled It)
 scorelines = set()  # sorted "min-max" strings seen this tournament (for Scorigami)
+proj_last = {"iso": "", "map": {}}  # last seen predictions snapshot (for the shift tracker)
+shifts = []      # newest first: how projections moved after each result
 seeding = True
 
 def save_state():
@@ -174,17 +184,19 @@ def save_state():
         tmp = STATE_PATH + ".tmp"
         with open(tmp, "w") as f:
             json.dump({"snap": snap, "seen": list(seen), "cards": cards,
-                       "ht": ht_scores, "scorelines": list(scorelines)}, f)
+                       "ht": ht_scores, "scorelines": list(scorelines),
+                       "proj_last": proj_last, "shifts": shifts}, f)
         os.replace(tmp, STATE_PATH)  # atomic
     except Exception as e:
         print("[state] save failed (%s): %s" % (STATE_PATH, e), flush=True)
 def load_state():
-    global snap, seen, cards, ht_scores, scorelines, seeding
+    global snap, seen, cards, ht_scores, scorelines, proj_last, shifts, seeding
     try:
         with open(STATE_PATH) as f:
             d = json.load(f)
         snap = d.get("snap", {}); seen = set(d.get("seen", [])); cards = d.get("cards", [])
         ht_scores = d.get("ht", {}); scorelines = set(d.get("scorelines", []))
+        proj_last = d.get("proj_last", {"iso": "", "map": {}}); shifts = d.get("shifts", [])
         seeding = False  # we already have prior state; don't retro-emit
         print("[state] loaded %d cards / %d seen from %s" % (len(cards), len(seen), STATE_PATH), flush=True)
     except FileNotFoundError:
@@ -340,6 +352,7 @@ def emit_verdicts(ev):
                          "More cards than chances", "%d cards shown" % cards_total)
 
 def detect(evs, seed):
+    ft = False
     for ev in evs:
         prev = snap.get(ev["id"])
         hs, as_ = ev["home"]["score"] or 0, ev["away"]["score"] or 0
@@ -364,9 +377,68 @@ def detect(evs, seed):
                 if not seed:
                     emit_vs(ev, "final", {"label": "Full Time"}, "Final")
                     emit_verdicts(ev)
+                    ft = True
                 else:
                     record_scoreline(ev)   # seed: remember the scoreline so Scorigami stays accurate
         snap[ev["id"]] = {"state": ev["state"], "home": hs, "away": as_}
+    return ft
+
+_last_dispatch = [0.0]
+def trigger_deploy():
+    if not GITHUB_TOKEN:
+        return
+    now = time.time()
+    if now - _last_dispatch[0] < 90:   # debounce several near-simultaneous finals into one deploy
+        return
+    _last_dispatch[0] = now
+    try:
+        url = "https://api.github.com/repos/%s/actions/workflows/%s/dispatches" % (GITHUB_REPO, GITHUB_WORKFLOW)
+        req = urllib.request.Request(url, data=json.dumps({"ref": "main"}).encode("utf-8"), method="POST",
+                                     headers={"Authorization": "Bearer " + GITHUB_TOKEN, "Accept": "application/vnd.github+json",
+                                              "User-Agent": "SportacleLiveWatcher", "Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            print("[deploy] triggered %s after full time (HTTP %d)" % (GITHUB_WORKFLOW, r.status), flush=True)
+    except Exception as e:
+        print("[deploy] trigger failed: %s" % e, flush=True)
+
+def poll_projections():
+    # Fetch the public projections; when updated_iso changes (a new result was
+    # folded in), diff each team's projected R32 opponent and log the shifts.
+    try:
+        d = get_json(PREDICTIONS_URL + "?t=" + str(int(time.time())))
+    except Exception:
+        return
+    iso = d.get("updated_iso") or ""
+    cur = {}
+    for m in (d.get("matchups") or []):
+        tn = (m.get("team") or {}).get("name", "")
+        opp = m.get("opponent") or {}
+        if tn:
+            cur[tn] = {"opp": opp.get("name", ""), "prob": int(opp.get("prob") or 0),
+                       "code": (m.get("team") or {}).get("code", ""), "oppcode": opp.get("code", "")}
+    if not cur:
+        return
+    if not proj_last["map"]:
+        proj_last["iso"] = iso; proj_last["map"] = cur; save_state(); return  # first snapshot, nothing to diff
+    if iso and iso != proj_last["iso"]:
+        changes = []
+        for tn, nv in cur.items():
+            ov = proj_last["map"].get(tn)
+            if not ov:
+                continue
+            flip = ov["opp"] != nv["opp"]
+            if flip or abs(nv["prob"] - ov["prob"]) >= 3:
+                changes.append({"team": tn, "code": nv.get("code", ""),
+                                "oldOpp": ov["opp"], "oldProb": ov["prob"],
+                                "newOpp": nv["opp"], "newProb": nv["prob"],
+                                "newOppCode": nv.get("oppcode", ""), "flip": flip})
+        if changes:
+            changes.sort(key=lambda c: (not c["flip"], -abs(c["newProb"] - c["oldProb"])))
+            shifts.insert(0, {"ts": int(time.time() * 1000), "iso": iso,
+                              "result": d.get("last_result", ""), "changes": changes})
+            del shifts[40:]
+            print("[shift] %d projection changes after %s" % (len(changes), d.get("last_result", "")), flush=True)
+        proj_last["iso"] = iso; proj_last["map"] = cur; save_state()
 
 def poll_loop():
     global seeding
@@ -376,7 +448,10 @@ def poll_loop():
             now = time.time() * 1000
             url = "%s?dates=%s-%s" % (SCOREBOARD, ymd_u(now - 36 * 3600 * 1000), ymd_u(now + 60 * 3600 * 1000))
             evs = parse_events(get_json(url))
-            detect(evs, seeding); seeding = False
+            ft = detect(evs, seeding); seeding = False
+            if ft:
+                trigger_deploy()
+            poll_projections()
             live_n = sum(1 for e in evs if e["state"] == "in")
             soon = any(e["state"] == "pre" and (e["epoch"] - now) < 15 * 60000 for e in evs)
             delay = 30 if (live_n or soon) else 300
@@ -420,6 +495,10 @@ class Handler(BaseHTTPRequestHandler):
             with LOCK:
                 payload = json.dumps({"updated": int(time.time() * 1000), "cards": cards})
             return self._send(200, payload, "application/json", {"Cache-Control": "no-store"})
+        if path in ("/shifts.json", "/shifts.json/"):
+            with LOCK:
+                payload = json.dumps({"updated": int(time.time() * 1000), "current_iso": proj_last.get("iso", ""), "shifts": shifts})
+            return self._send(200, payload, "application/json", {"Cache-Control": "no-store"})
         return self._serve_static(path)
     def _serve_static(self, path):
         if path == "/":
@@ -444,6 +523,7 @@ def main():
     port = int(os.environ.get("PORT", "8080"))
     if not BASIC_PASS:
         print("[boot] WARNING: BASIC_PASS not set -> auth DISABLED (set it on Railway to lock the tools)", flush=True)
+    print("[boot] deploy-on-full-time: %s" % ("ON" if GITHUB_TOKEN else "OFF (set GITHUB_TOKEN to enable)"), flush=True)
     print("[boot] teams=%d, static=%s, serving on :%d" % (len(TEAMS), STATIC_DIR, port), flush=True)
     ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()
 
