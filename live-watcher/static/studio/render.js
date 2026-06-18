@@ -759,6 +759,59 @@
     creamFooter(ctx, p.footnote);
   }
 
+  // ---- PROJECTION TICKER (breaking-news lower-third, flag-forward not navy) ----
+  function renderTicker(ctx, p, F) {
+    var INKB = '#11161F', CREAM = '#F4F2EB', RED = '#C8102E', col = p.acolor || '#1E9B4B';
+    // flag hero + heavy team tint + scrim (the goal-card treatment, keeps it flag-forward)
+    ctx.fillStyle = col; ctx.fillRect(0, 0, W, W);
+    if (F.a) cover(ctx, F.a, 0, 0, W, W, 0.5, 0.4);
+    ctx.save(); ctx.globalAlpha = .6; ctx.fillStyle = col; ctx.fillRect(0, 0, W, W); ctx.restore();
+    var sc = ctx.createLinearGradient(0, 0, 0, W);
+    sc.addColorStop(0, 'rgba(8,10,14,.62)'); sc.addColorStop(.45, 'rgba(8,10,14,.14)'); sc.addColorStop(1, 'rgba(8,10,14,.86)');
+    ctx.fillStyle = sc; ctx.fillRect(0, 0, W, W);
+    fifaRibbon(ctx, 0, 8);
+    // BREAKING banner (left-flush red) with a live dot
+    var lbl = String(p.label || 'PROJECTION ALERT').toUpperCase();
+    ctx.font = font('800', 38, BR); ls(ctx, 8); var lw = ctx.measureText(lbl).width; ls(ctx, 0);
+    var bw = lw + 96, by = 104, bh = 74;
+    ctx.fillStyle = RED; ctx.fillRect(0, by, bw, bh);
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(42, by + bh / 2, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.font = font('800', 38, BR); ls(ctx, 8); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(lbl, 66, by + bh / 2 + 1); ls(ctx, 0);
+    // delta chip top-right
+    if (p.delta) {
+      var up = p.deltaDir !== 'down', dc = up ? '#1E9B4B' : '#ED2939';
+      var dt = (up ? '+' : '-') + String(p.delta).replace(/^[+-]/, '');
+      ctx.font = font('800', 36, BR); var cw = ctx.measureText(dt).width + 44;
+      pill(ctx, 1016 - cw / 2, by + bh / 2, dt, { font: font('800', 36, BR), lsp: 0, padX: 22, h: bh - 8, bg: dc, color: '#fff', shadow: { c: 'rgba(0,0,0,.35)', b: 18, oy: 6 } });
+    }
+    // HEADLINE hero (Khand white, wrapped, bottom-anchored above the ticker)
+    if (p.headline) {
+      var fwt = fitWrap(ctx, String(p.headline), '700', 92, KH, W - 128, 3, 50);
+      var lh = fwt.size * 0.86, n = fwt.lines.length, lastBase = W - 188, topBase = lastBase - (n - 1) * lh;
+      drawQuoteGlyph(ctx, 56, topBase - fwt.size * 0.96, 150, '#F4F2EB', .12);
+      ctx.font = font('700', fwt.size, KH); ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 4;
+      for (var i = 0; i < n; i++) ctx.fillText(fwt.lines[i], 64, topBase + i * lh);
+      ctx.restore();
+    }
+    // TICKER footer: ink bar + LIVE tab + ticker text + wordmark, ribbon at the very bottom
+    var ty = W - 88, th = 76;
+    ctx.fillStyle = INKB; ctx.fillRect(0, ty, W, th);
+    ctx.fillStyle = RED; ctx.fillRect(0, ty, 110, th);
+    ctx.fillStyle = '#fff'; ctx.font = font('800', 26, BR); ls(ctx, 2); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('LIVE', 55, ty + th / 2); ls(ctx, 0);
+    ctx.font = font('700', 30, KH); ls(ctx, 2); ctx.textAlign = 'left';
+    var t1 = 'SPORT', t2 = 'ACLE', b1 = ctx.measureText(t1).width, b2 = ctx.measureText(t2).width, wx = W - 28 - b1 - b2;
+    ctx.fillStyle = CREAM; ctx.fillText(t1, wx, ty + th / 2 + 1); ctx.fillStyle = '#FFC400'; ctx.fillText(t2, wx + b1, ty + th / 2 + 1); ls(ctx, 0);
+    if (p.ticker) {
+      var maxTW = wx - 130 - 28;
+      var tss = fitFont(ctx, String(p.ticker).toUpperCase(), '700', 27, BR, maxTW, 1);
+      ctx.font = font('700', tss, BR); ls(ctx, 1); ctx.fillStyle = hexA(CREAM, .82); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(p.ticker).toUpperCase(), 130, ty + th / 2 + 1); ls(ctx, 0);
+    }
+    fifaRibbon(ctx, W - 8, 8);
+  }
+
   // ---- STANDINGS (group table, provisional during live games) ----
   function renderStandingsCard(ctx, p, flags) {
     var live = !!p.live, accent = live ? '#C8102E' : '#1E9B4B';
@@ -833,7 +886,7 @@
       }
       return Promise.all([loadFlag(p.ac), loadFlag(p.bc)]).then(function (f) {
         var F = { a: f[0], b: f[1] };
-        if (type === 'whowins') renderWhoWins(ctx, p, F); else if (type === 'verdict') renderVerdict(ctx, p, F); else if (type === 'panel') renderPanel(ctx, p, F); else renderFinal(ctx, p, F);
+        if (type === 'whowins') renderWhoWins(ctx, p, F); else if (type === 'verdict') renderVerdict(ctx, p, F); else if (type === 'panel') renderPanel(ctx, p, F); else if (type === 'ticker') renderTicker(ctx, p, F); else renderFinal(ctx, p, F);
       });
     });
   }

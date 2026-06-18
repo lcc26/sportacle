@@ -106,6 +106,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <button data-type="tierboard">Tier List</button>
         <button data-type="oddsboard">Odds</button>
         <button data-type="movers">Movers</button>
+        <button data-type="ticker">Ticker</button>
         <button data-type="live">Live</button>
       </div>
 
@@ -214,6 +215,18 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <div class="field"><label>Team</label><select id="oteam"></select></div>
         <div class="minfo">A team's projected Round of 32 opponent odds, Polymarket style. From the live projections.</div>
       </div>
+      <!-- projection ticker (breaking-news lower-third) -->
+      <div id="tickerFields" class="hide">
+        <div class="field"><label>Team</label><select id="tteam"></select></div>
+        <div class="field"><label>Banner label</label><input id="tlabel" type="text" maxlength="22" placeholder="PROJECTION ALERT"></div>
+        <div class="field"><label>Headline</label><input id="thead" type="text" maxlength="96" placeholder="The projection news"></div>
+        <div class="row">
+          <div class="field"><label>Delta (optional)</label><input id="tdelta" type="text" maxlength="6" placeholder="12%"></div>
+          <div class="field"><label>Direction</label><select id="tdir"><option value="up">Up (green)</option><option value="down">Down (red)</option></select></div>
+        </div>
+        <div class="field"><label>Ticker line</label><input id="tticker" type="text" maxlength="120" placeholder="The scrolling sub-line"></div>
+      </div>
+
       <!-- market movers (shift-derived) -->
       <div id="moversFields" class="hide">
         <div class="minfo">Risers and fallers from the latest result that moved the bracket. From the projection shift log.</div>
@@ -264,7 +277,8 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     }).then(function(){
     return fetch("/make/teams.json").then(function(r){return r.json();}).then(function(d){
       TEAMS=d;
-      ["home","away","gteam","gvs","steam","rteamA","rteamB","dteamA","dteamB","qteam"].forEach(function(id){ fillSelect(id, id==="gvs"); });
+      ["home","away","gteam","gvs","steam","rteamA","rteamB","dteamA","dteamB","qteam","tteam"].forEach(function(id){ fillSelect(id, id==="gvs"); });
+      setSel("tteam","Brazil"); document.getElementById("tlabel").value="PROJECTION ALERT"; document.getElementById("thead").value="Brazil now 71% to win Group G after Serbia draw"; document.getElementById("tdelta").value="12%"; document.getElementById("tticker").value="R32 picture shifts · Brazil avoids the France side · Serbia slips to 34% to advance";
       setSel("qteam","Germany"); document.getElementById("qquote").value="We treated it like a friendly."; document.getElementById("qattr").value="Germany"; document.getElementById("qcontext").value="Sportacle still has them 68% to win the group.";
       setSel("home","England"); setSel("away","Croatia");
       setSel("gteam","England"); setSel("gvs","Croatia"); setSel("steam","England");
@@ -385,6 +399,13 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     update();
   }
   function buildParams(){
+    if(type==="ticker"){
+      var tt=opt("tteam");
+      var tp={ac:tt.getAttribute("data-code")||"", acolor:tt.getAttribute("data-color")||"#1E9B4B",
+              label:val("tlabel")||"PROJECTION ALERT", headline:val("thead"), ticker:val("tticker")};
+      if(val("tdelta")){ tp.delta=val("tdelta"); tp.deltaDir=opt("tdir").value; }
+      return tp;
+    }
     if(type==="quote"){
       var qt=opt("qteam");
       var qp={team:qt.value||"", code:qt.getAttribute("data-code")||"", color:qt.getAttribute("data-color")||"#1E9B4B",
@@ -457,7 +478,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(val("rhead")) pp.label=val("rhead");
     return pp;
   }
-  function rtype(){ return type==="goal"?"goal":type==="whowins"?"whowins":type==="stats"?"stats":type==="roast"?"verdict":type==="definition"?"panel":type==="quote"?"quotecard":"final"; }
+  function rtype(){ return type==="goal"?"goal":type==="whowins"?"whowins":type==="stats"?"stats":type==="roast"?"verdict":type==="definition"?"panel":type==="quote"?"quotecard":type==="ticker"?"ticker":"final"; }
   var statusEl=document.getElementById("status");
 
   // ---- Stats: pull a team's last completed match + per-player stats from ESPN ----
@@ -832,6 +853,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         document.getElementById("tierboardFields").classList.toggle("hide", type!=="tierboard");
         document.getElementById("oddsboardFields").classList.toggle("hide", type!=="oddsboard");
         document.getElementById("moversFields").classList.toggle("hide", type!=="movers");
+        document.getElementById("tickerFields").classList.toggle("hide", type!=="ticker");
         document.getElementById("liveFields").classList.toggle("hide", type!=="live");
         document.getElementById("scoreRow").classList.toggle("hide", type==="whowins");
         document.getElementById("stage").hidden=(type==="live");
@@ -887,6 +909,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(type==="cooked"){ return "sportacle-cooked-"+ts+".png"; }
     if(type==="tierboard"){ return "sportacle-tierlist-"+ts+".png"; }
     if(type==="movers"){ return "sportacle-movers-"+ts+".png"; }
+    if(type==="ticker"){ return "sportacle-ticker-"+(opt("tteam").getAttribute("data-code")||"x")+"-"+ts+".png"; }
     if(type==="oddsboard"){ return "sportacle-odds-"+(opt("oteam").getAttribute("data-code")||slug(opt("oteam").value)||"x")+"-"+ts+".png"; }
     return "sportacle-"+type+"-"+(opt("home").getAttribute("data-code")||"x")+"-"+(opt("away").getAttribute("data-code")||"x")+"-"+(val("hg")||0)+"-"+(val("ag")||0)+"-"+ts+".png";
   }
