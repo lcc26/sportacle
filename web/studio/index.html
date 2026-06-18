@@ -76,6 +76,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <button data-type="whowins">Who Wins</button>
         <button data-type="stats">Stats</button>
         <button data-type="infographic">Fun Stats</button>
+        <button data-type="standings">Standings</button>
       </div>
 
       <!-- result fields (final + half) -->
@@ -115,6 +116,12 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <div class="minfo" id="infonote">Pulls every completed match. First load takes a few seconds.</div>
       </div>
 
+      <!-- standings card fields -->
+      <div id="standingsCardFields" class="hide">
+        <div class="field"><label>Group</label><select id="sgroup"></select></div>
+        <div class="minfo">Live games show provisional points; the group is flagged LIVE.</div>
+      </div>
+
       <button class="dl" id="dl">Download PNG (1080x1080)</button>
       <div class="status" id="status">Preview updates live.</div>
     </div>
@@ -150,6 +157,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       setSel("gteam","England"); setSel("gvs","Croatia"); setSel("steam","England");
       document.getElementById("hg").value="4"; document.getElementById("ag").value="2";
       var mo=document.getElementById("metric"); mo.innerHTML=Object.keys(METRICS).map(function(k){return '<option value="'+k+'">'+METRICS[k].title+'</option>';}).join("");
+      var sg=document.getElementById("sgroup"); sg.innerHTML="ABCDEFGHIJKL".split("").map(function(L){return '<option value="Group '+L+'">Group '+L+'</option>';}).join("");
       wire(); draw();
       var demo=new URLSearchParams(location.search).get("demo");
       if(demo){ var db=document.querySelector('#seg button[data-type="'+demo+'"]'); if(db) db.click(); }
@@ -308,14 +316,41 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     }).catch(function(e){ statusEl.textContent="Couldn't load data: "+e; });
   }
 
+  // ---- Standings card: a group table with in-progress games folded in provisionally ----
+  var STANDINGS_URL="https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings?season=2026";
+  var lastStandParams=null;
+  function numS(en,n){ var a=en.stats||[]; for(var i=0;i<a.length;i++){ if(a[i].name===n){ var v=parseFloat(a[i].displayValue!=null?a[i].displayValue:a[i].value); return isFinite(v)?v:0; } } return 0; }
+  function prov(b,home,hs,as){ var my=home?hs:as,opp=home?as:hs; var p={P:b.P+1,W:b.W,D:b.D,L:b.L,GD:b.GD+(my-opp),Pts:b.Pts,GF:b.GF+my}; if(my>opp){p.W++;p.Pts+=3;}else if(my<opp){p.L++;}else{p.D++;p.Pts++;} return p; }
+  function liveGames(d){ return (d.events||[]).filter(function(e){return ((((e.competitions||[])[0]||{}).status||{}).type||{}).state==="in";}).map(function(e){ var c=e.competitions[0].competitors, hm=c.filter(function(x){return x.homeAway==="home";})[0], aw=c.filter(function(x){return x.homeAway==="away";})[0]; return {h:hm.team.displayName,a:aw.team.displayName,hs:parseInt(hm.score||"0",10)||0,as:parseInt(aw.score||"0",10)||0}; }); }
+  function drawStandingsCard(){
+    var gname=opt("sgroup").value; if(!gname) return Promise.resolve();
+    statusEl.textContent="Loading standings…";
+    return Promise.all([fetch(STANDINGS_URL).then(function(r){return r.json();}), fetch(ESPN+"scoreboard?dates=20260611-"+ymdU(Date.now()+864e5)).then(function(r){return r.json();})]).then(function(res){
+      var g=((res[0].children||[]).filter(function(x){return x.name===gname;}))[0]; if(!g){ statusEl.textContent="Group not found."; return; }
+      var lg=liveGames(res[1]), groupLive=false;
+      var rows=((g.standings||{}).entries||[]).map(function(en){
+        var name=(en.team||{}).displayName||"";
+        var base={P:numS(en,"gamesPlayed"),W:numS(en,"wins"),D:numS(en,"ties"),L:numS(en,"losses"),GD:numS(en,"pointDifferential"),Pts:numS(en,"points"),GF:numS(en,"pointsFor")};
+        var s=base,isLive=false;
+        for(var k=0;k<lg.length;k++){ if(canon(lg[k].h)===canon(name)){s=prov(base,true,lg[k].hs,lg[k].as);isLive=true;groupLive=true;break;} if(canon(lg[k].a)===canon(name)){s=prov(base,false,lg[k].hs,lg[k].as);isLive=true;groupLive=true;break;} }
+        return {code:teamCode(name),name:name,P:s.P,W:s.W,D:s.D,L:s.L,GD:s.GD,Pts:s.Pts,GF:s.GF,live:isLive};
+      });
+      rows.sort(function(a,b){return (b.Pts-a.Pts)||(b.GD-a.GD)||(b.GF-a.GF);});
+      lastStandParams={group:gname,live:groupLive,rows:rows};
+      return window.SportacleRender.renderTo(cv,"standings",lastStandParams,2).then(function(){ if(!busy) statusEl.textContent=gname+(groupLive?" · LIVE":""); });
+    }).catch(function(e){ statusEl.textContent="Standings load failed: "+e; });
+  }
+
   // Native canvas render = the preview AND (re-run) the download. No iframe, no
   // html-to-image, no foreignObject, no network at capture: bulletproof.
   function render(){
     if(type==="infographic") return window.SportacleRender.renderTo(cv,"infographic", lastInfoParams||{rows:[]}, 2);
+    if(type==="standings") return window.SportacleRender.renderTo(cv,"standings", lastStandParams||{rows:[]}, 2);
     return window.SportacleRender.renderTo(cv, rtype(), buildParams(), 2);
   }
   function draw(){
     if(type==="infographic"){ drawInfographic(); return; }
+    if(type==="standings"){ drawStandingsCard(); return; }
     render().then(function(){ if(!busy) statusEl.textContent="Preview updated."; }).catch(function(e){ statusEl.textContent="Render error: "+e; });
   }
   function update(){ clearTimeout(t); t=setTimeout(draw,120); }
@@ -324,10 +359,11 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       b.addEventListener("click",function(){
         document.querySelectorAll("#seg button").forEach(function(x){x.classList.remove("on");});
         b.classList.add("on"); type=b.getAttribute("data-type");
-        document.getElementById("resultFields").classList.toggle("hide", type==="goal"||type==="stats"||type==="infographic");
+        document.getElementById("resultFields").classList.toggle("hide", type==="goal"||type==="stats"||type==="infographic"||type==="standings");
         document.getElementById("goalFields").classList.toggle("hide", type!=="goal");
         document.getElementById("statsFields").classList.toggle("hide", type!=="stats");
         document.getElementById("infographicFields").classList.toggle("hide", type!=="infographic");
+        document.getElementById("standingsCardFields").classList.toggle("hide", type!=="standings");
         document.getElementById("scoreRow").classList.toggle("hide", type==="whowins");
         if(type==="stats" && !statsData){ loadStatsTeam(); } else { update(); }
       });
@@ -349,6 +385,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       return parts.join("-")+"-"+ts+".png";
     }
     if(type==="infographic"){ return "sportacle-"+(opt("metric").value||"funstat")+"-"+ts+".png"; }
+    if(type==="standings"){ return "sportacle-standings-"+(opt("sgroup").value||"x").replace(/\s+/g,"").toLowerCase()+"-"+ts+".png"; }
     if(type==="stats"){ return "sportacle-stats-"+(opt("steam").getAttribute("data-code")||"x")+"-"+ts+".png"; }
     return "sportacle-"+type+"-"+(opt("home").getAttribute("data-code")||"x")+"-"+(opt("away").getAttribute("data-code")||"x")+"-"+(val("hg")||0)+"-"+(val("ag")||0)+"-"+ts+".png";
   }
@@ -357,7 +394,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(busy) return; busy=true; dlBtn.disabled=true;
     var name=fname(); statusEl.textContent="Rendering...";
     clearTimeout(t);
-    (type==="infographic"?drawInfographic():render()).then(function(){
+    (type==="infographic"?drawInfographic():type==="standings"?drawStandingsCard():render()).then(function(){
       cv.toBlob(function(blob){
         if(!blob){ busy=false; dlBtn.disabled=false; statusEl.textContent="Export failed."; return; }
         var url=URL.createObjectURL(blob), a=document.createElement("a");

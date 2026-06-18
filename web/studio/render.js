@@ -433,6 +433,41 @@
     if (p.footnote) { ctx.font = font('700', 17, BR); ls(ctx, 2); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillText(String(p.footnote).toUpperCase(), fx + bw1 + bw2 + 16, fy + 1); ls(ctx, 0); }
   }
 
+  // ---- STANDINGS (group table, provisional during live games) ----
+  function renderStandingsCard(ctx, p, flags) {
+    var live = !!p.live, accent = live ? '#C8102E' : '#1E9B4B';
+    ctx.fillStyle = '#0d1016'; ctx.fillRect(0, 0, W, W);
+    var rg = ctx.createRadialGradient(540, 90, 0, 540, 90, 840); rg.addColorStop(0, hexA(accent, 0.16)); rg.addColorStop(1, 'rgba(13,16,22,0)');
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, W, W);
+    ctx.fillStyle = '#fff'; ctx.font = font('700', 76, KH); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    var title = String(p.group || 'Group').toUpperCase(); ctx.fillText(title, 64, 128);
+    if (live) pill(ctx, 64 + ctx.measureText(title).width + 86, 102, 'LIVE', { font: font('800', 26, BR), lsp: 3, padX: 22, h: 46, bg: '#C8102E', color: '#fff' });
+    var cols = [['P', 566], ['W', 652], ['D', 738], ['L', 824], ['GD', 930], ['PTS', 1032]];
+    ctx.font = font('800', 22, BR); ls(ctx, 1.5); ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    cols.forEach(function (c) { ctx.fillText(c[0], c[1], 214); });
+    ctx.textAlign = 'left'; ctx.fillText('TEAM', 66, 214); ls(ctx, 0);
+    var rows = (p.rows || []).slice(0, 4), rowTop = 256, rowH = rows.length ? Math.min(152, (W - rowTop - 116) / rows.length) : 150;
+    rows.forEach(function (r, i) {
+      var cy = rowTop + i * rowH + rowH / 2;
+      if (r.live) { ctx.fillStyle = 'rgba(200,16,46,.13)'; rrect(ctx, 40, cy - rowH / 2 + 6, W - 80, rowH - 12, 14); ctx.fill(); }
+      if (i < 2) { ctx.fillStyle = '#1E9B4B'; rrect(ctx, 42, cy - rowH / 2 + 12, 6, rowH - 24, 3); ctx.fill(); }
+      ctx.font = font('700', 46, KH); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = i < 2 ? '#37C46A' : 'rgba(255,255,255,.5)';
+      ctx.fillText(String(i + 1), 88, cy);
+      var fw = 64, fh = 43; drawMiniFlag(ctx, flags[r.code], 130, cy - fh / 2, fw, fh);
+      ctx.font = font('700', 41, KH); ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
+      var name = String(r.name || ''), maxW = 300; if (ctx.measureText(name).width > maxW) { while (name.length > 3 && ctx.measureText(name + '…').width > maxW) name = name.slice(0, -1); name += '…'; }
+      ctx.fillText(name, 216, cy + 1);
+      ctx.textAlign = 'right'; ctx.font = font('600', 40, KH); ctx.fillStyle = 'rgba(255,255,255,.82)';
+      var vals = [r.P, r.W, r.D, r.L, (r.GD > 0 ? '+' : '') + r.GD];
+      for (var j = 0; j < 5; j++) ctx.fillText(String(vals[j]), cols[j][1], cy + 1);
+      ctx.font = font('700', 46, KH); ctx.fillStyle = r.live ? '#FF5A6A' : '#fff'; ctx.fillText(String(r.Pts), 1032, cy + 1);
+    });
+    ctx.font = font('700', 36, KH); ls(ctx, 3); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    var t1 = 'SPORT', t2 = 'ACLE', bw1 = ctx.measureText(t1).width, bw2 = ctx.measureText(t2).width, fx = 540 - (bw1 + bw2) / 2, fy = W - 52;
+    ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.fillText(t1, fx, fy); ctx.fillStyle = accent; ctx.fillText(t2, fx + bw1, fy);
+    ls(ctx, 0); ctx.font = font('700', 17, BR); ls(ctx, 2); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillText('WORLD CUP 2026 · TOP 2 ADVANCE', fx + bw1 + bw2 + 16, fy + 1); ls(ctx, 0);
+  }
+
   // ---- public entry ----
   function renderTo(canvas, type, p, scale) {
     scale = scale || 2;
@@ -441,11 +476,11 @@
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     return ensureFonts().then(function () {
       if (type === 'stats') { renderStats(ctx, p); return; }
-      if (type === 'infographic') {
+      if (type === 'infographic' || type === 'standings') {
         var codes = (p.rows || []).map(function (r) { return r.code; });
         return Promise.all(codes.map(loadFlag)).then(function (imgs) {
           var fmap = {}; codes.forEach(function (c, i) { fmap[c] = imgs[i]; });
-          renderLeaderboard(ctx, p, fmap);
+          if (type === 'standings') renderStandingsCard(ctx, p, fmap); else renderLeaderboard(ctx, p, fmap);
         });
       }
       if (type === 'goal') {
