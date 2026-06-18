@@ -9,6 +9,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Card fonts (used by render.js to draw the cards) -->
+<link href="https://fonts.googleapis.com/css2?family=Khand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0E1116;--panel:#171C24;--line:#262D38;--ink:#F4F2EB;--muted:#9AA7B8;--accent:#1E9B4B;--amber:#FFC400}
 *{box-sizing:border-box;margin:0}
@@ -42,8 +44,8 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
 .dl:active{transform:translateY(1px)}
 .status{margin-top:12px;font-size:13px;color:var(--muted);min-height:18px;text-align:center}
 .preview{display:flex;align-items:center;justify-content:center;padding:30px;background:radial-gradient(60% 60% at 50% 30%,#12202f,#0E1116 75%)}
-.stage{width:100%;max-width:620px;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
-.stage iframe{width:1080px;height:1080px;border:0;transform-origin:top left;display:block;background:#fff}
+.stage{width:100%;max-width:620px;border-radius:14px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+.stage canvas{width:100%;height:auto;display:block;background:#fff}
 @media (max-width:880px){.layout{grid-template-columns:1fr}.controls{border-right:0;border-bottom:1px solid var(--line)}}
 </style>
 </head>
@@ -97,10 +99,11 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       <div class="status" id="status">Preview updates live.</div>
     </div>
 
-    <div class="preview"><div class="stage" id="stage"><iframe id="frame" title="preview"></iframe></div></div>
+    <div class="preview"><div class="stage" id="stage"><canvas id="cv" width="2160" height="2160" aria-label="card preview"></canvas></div></div>
   </div>
 </div>
 
+<script src="render.js"></script>
 <script>
 (function(){
   // ---- soft gate (deterrent; see note to Chase). Change PASS to rotate it. ----
@@ -114,8 +117,8 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     else document.getElementById("gateErr").textContent="Incorrect.";
   });
 
-  var TEAMS=[], started=false;
-  var frame=document.getElementById("frame"), stage=document.getElementById("stage");
+  var TEAMS=[], started=false, t=null, busy=false;
+  var cv=document.getElementById("cv");
   var type="final";
 
   function init(){
@@ -123,11 +126,10 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     fetch("/make/teams.json").then(function(r){return r.json();}).then(function(d){
       TEAMS=d;
       ["home","away","gteam","gvs"].forEach(function(id){ fillSelect(id, id==="gvs"); });
-      // sensible defaults
       setSel("home","England"); setSel("away","Croatia");
       setSel("gteam","England"); setSel("gvs","Croatia");
       document.getElementById("hg").value="4"; document.getElementById("ag").value="2";
-      wire(); fit(); update();
+      wire(); draw();
     });
   }
   function fillSelect(id, blankFirst){
@@ -139,33 +141,33 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
   function opt(id){ var s=document.getElementById(id); return s.options[s.selectedIndex]||{}; }
   function val(id){ return (document.getElementById(id).value||"").trim(); }
 
-  function buildSrc(){
-    var p=new URLSearchParams();
+  // Build the params object the native canvas renderer (render.js) expects.
+  function buildParams(){
     if(type==="goal"){
-      var t=opt("gteam");
-      p.set("team", t.value||""); p.set("code", t.getAttribute("data-code")||""); p.set("tc", t.getAttribute("data-color")||"");
-      if(val("scorer")) p.set("scorer", val("scorer"));
-      if(val("gmin")) p.set("min", val("gmin"));
-      if(val("gtag")) p.set("tag", val("gtag"));
+      var tm=opt("gteam");
+      var p={team:tm.value||"", code:tm.getAttribute("data-code")||"", tc:tm.getAttribute("data-color")||"#1E9B4B", tag:val("gtag")||"Sportacle", home:"1"};
+      if(val("scorer")) p.scorer=val("scorer");
+      if(val("gmin")) p.min=val("gmin");
       var sc=val("gscore"), vs=opt("gvs");
-      if(sc && vs && vs.value){ p.set("score", sc); p.set("vs", vs.getAttribute("data-code")||""); }
-      return "/make/goal.html?"+p.toString();
+      if(sc && vs && vs.value){ p.score=sc; p.vs=vs.getAttribute("data-code")||""; }
+      return p;
     }
     var h=opt("home"), a=opt("away");
-    p.set("an",h.value||""); p.set("ac",h.getAttribute("data-code")||""); p.set("acolor",h.getAttribute("data-color")||"");
-    p.set("bn",a.value||""); p.set("bc",a.getAttribute("data-code")||""); p.set("bcolor",a.getAttribute("data-color")||"");
-    p.set("hg", val("hg")||"0"); p.set("ag", val("ag")||"0");
-    if(val("note")) p.set("note", val("note"));
-    if(type==="half"){ p.set("label","Half Time"); p.set("lc","#FFC400"); } else { p.set("label","Full Time"); }
-    return "/make/final.html?"+p.toString();
+    var pp={an:h.value||"", ac:h.getAttribute("data-code")||"", acolor:h.getAttribute("data-color")||"#1E9B4B",
+            bn:a.value||"", bc:a.getAttribute("data-code")||"", bcolor:a.getAttribute("data-color")||"#C8102E",
+            hg:val("hg")||"0", ag:val("ag")||"0"};
+    if(val("note")) pp.note=val("note");
+    if(type==="half"){ pp.label="Half Time"; pp.lc="#FFC400"; } else { pp.label="Full Time"; }
+    return pp;
   }
+  function rtype(){ return type==="goal"?"goal":"final"; }
+  var statusEl=document.getElementById("status");
 
-  var t=null;
-  function update(){ clearTimeout(t); t=setTimeout(function(){ frame.src=buildSrc(); }, 120); }
-  function flushUpdate(){ if(t){ clearTimeout(t); t=null; frame.src=buildSrc(); } }
-  function fit(){ var s=stage.clientWidth/1080; frame.style.transform="scale("+s+")"; stage.style.height=(1080*s)+"px"; }
-  window.addEventListener("resize", fit);
-
+  // Native canvas render = the preview AND (re-run) the download. No iframe, no
+  // html-to-image, no foreignObject, no network at capture: bulletproof.
+  function render(){ return window.SportacleRender.renderTo(cv, rtype(), buildParams(), 2); }
+  function draw(){ render().then(function(){ if(!busy) statusEl.textContent="Preview updated."; }).catch(function(e){ statusEl.textContent="Render error: "+e; }); }
+  function update(){ clearTimeout(t); t=setTimeout(draw,120); }
   function wire(){
     document.querySelectorAll("#seg button").forEach(function(b){
       b.addEventListener("click",function(){
@@ -181,10 +183,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     });
   }
 
-  // ---- download via the iframe's verified export hook ----
+  // ---- download: re-render fresh, then canvas.toBlob (same-origin canvas never taints) ----
   function slug(s){ return (s||"").toLowerCase().replace(/[^a-z0-9]+/g,""); }
   function fname(){
-    // Short timestamp keeps distinct cards from silently colliding/OS-renaming when batch-posting.
     var ts=String(Date.now()).slice(-6);
     if(type==="goal"){
       var parts=["sportacle","goal",(opt("gteam").getAttribute("data-code")||"x")];
@@ -194,48 +195,20 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     }
     return "sportacle-"+type+"-"+(opt("home").getAttribute("data-code")||"x")+"-"+(opt("away").getAttribute("data-code")||"x")+"-"+(val("hg")||0)+"-"+(val("ag")||0)+"-"+ts+".png";
   }
-  var statusEl=document.getElementById("status");
   var dlBtn=document.getElementById("dl");
-  var busy=false, pendingName="", watchdog=null;
-  function endBusy(){ busy=false; dlBtn.disabled=false; if(watchdog){ clearTimeout(watchdog); watchdog=null; } }
-
-  function doExport(){
-    // Tie the download to the iframe document we actually messaged: snapshot the
-    // filename now so a later edit/type-switch can't rename a stale render (P1-6).
-    pendingName=fname();
-    statusEl.textContent="Rendering...";
-    busy=true; dlBtn.disabled=true;
-    watchdog=setTimeout(function(){
-      endBusy(); statusEl.textContent="Export timed out — try again.";
-    },15000);
-    frame.contentWindow.postMessage({type:"export",pixelRatio:2},"*");
-  }
   dlBtn.addEventListener("click",function(){
-    if(busy) return; // double-click guard (P1-5)
-    // If a debounced preview update is still pending, apply it and wait for the
-    // iframe to load the current form's card before exporting (P1-6).
-    if(t){
-      flushUpdate();
-      frame.addEventListener("load",function once(){ frame.removeEventListener("load",once); doExport(); });
-    } else {
-      doExport();
-    }
-  });
-  window.addEventListener("message",function(e){
-    if(!e.data) return;
-    // Only trust messages from THIS iframe's current document & our own origin
-    // (P1-4 security; also discards late messages from a replaced iframe doc, P1-6).
-    if(e.source!==frame.contentWindow) return;
-    if(e.origin!==location.origin && e.origin!=="null") return;
-    if(e.data.type==="exported"){
-      if(!busy) return; // ignore stray/duplicate exports
-      var name=pendingName||fname();
-      var a=document.createElement("a"); a.href=e.data.dataUrl; a.download=name;
-      document.body.appendChild(a); a.click(); a.remove();
-      endBusy(); statusEl.textContent="Downloaded "+name;
-    } else if(e.data.type==="export-error"){
-      endBusy(); statusEl.textContent="Export failed: "+(e.data.error||"unknown error");
-    }
+    if(busy) return; busy=true; dlBtn.disabled=true;
+    var name=fname(); statusEl.textContent="Rendering...";
+    clearTimeout(t);
+    render().then(function(){
+      cv.toBlob(function(blob){
+        if(!blob){ busy=false; dlBtn.disabled=false; statusEl.textContent="Export failed."; return; }
+        var url=URL.createObjectURL(blob), a=document.createElement("a");
+        a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+        busy=false; dlBtn.disabled=false; statusEl.textContent="Downloaded "+name;
+      },"image/png");
+    }).catch(function(e){ busy=false; dlBtn.disabled=false; statusEl.textContent="Export failed: "+e; });
   });
 })();
 </script>
