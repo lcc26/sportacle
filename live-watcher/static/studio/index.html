@@ -278,7 +278,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     return fetch("/make/teams.json").then(function(r){return r.json();}).then(function(d){
       TEAMS=d;
       ["home","away","gteam","gvs","steam","rteamA","rteamB","dteamA","dteamB","qteam","tteam"].forEach(function(id){ fillSelect(id, id==="gvs"); });
-      setSel("tteam","Brazil"); document.getElementById("tlabel").value="PROJECTION ALERT"; document.getElementById("thead").value="Brazil now 71% to win Group G after Serbia draw"; document.getElementById("tdelta").value="12%"; document.getElementById("tticker").value="R32 picture shifts · Brazil avoids the France side · Serbia slips to 34% to advance";
+      setSel("tteam","Brazil"); document.getElementById("tlabel").value="PROJECTION ALERT"; document.getElementById("thead").value="Pick a team to load its live projection"; document.getElementById("tticker").value="The headline and odds fill in from the team's current projection";
       setSel("qteam","Germany"); document.getElementById("qquote").value="We treated it like a friendly."; document.getElementById("qattr").value="Germany"; document.getElementById("qcontext").value="Sportacle still has them 68% to win the group.";
       setSel("home","England"); setSel("away","Croatia");
       setSel("gteam","England"); setSel("gvs","Croatia"); setSel("steam","England");
@@ -664,6 +664,42 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       return window.SportacleRender.renderTo(cv,"oddsboard",params,2).then(function(){ if(!busy) statusEl.textContent=(m.team||{}).name+" projection."; });
     }).catch(function(e){ statusEl.textContent="Projections load failed: "+e; });
   }
+  // ---- Ticker auto-fill: write the language from a team's live projection + recent shift ----
+  function fillTickerCopy(){
+    var tn=opt("tteam").value;
+    loadPreds().then(function(d){
+      var m=(d.matchups||[]).filter(function(x){ return canon((x.team||{}).name)===canon(tn); })[0];
+      if(!m){ statusEl.textContent="No live projection for "+tn+" yet (type the ticker manually)."; update(); return; }
+      fetch("/shifts.json").then(function(r){return r.json();}).then(function(sd){
+        var ch=null, res="";
+        (sd.shifts||[]).some(function(ev){ var c=(ev.changes||[]).filter(function(x){return canon(x.team)===canon(tn);})[0]; if(c){ ch=c; res=ev.result||""; return true; } return false; });
+        applyTicker(tn,m,ch,res);
+      }).catch(function(){ applyTicker(tn,m,null,""); });
+    }).catch(function(){ statusEl.textContent="Projections not loaded yet."; });
+  }
+  function applyTicker(tn,m,ch,res){
+    var opp=m.opponent||{}, alts=m.alternates||[], field=m.field;
+    var label="PROJECTION ALERT", headline, delta="", dir="up";
+    if(ch){
+      var dd=ch.newProb-ch.oldProb;
+      if(ch.flip){ label="BRACKET BREAKING"; headline=tn+"'s projected R32 foe is now "+ch.newOpp+(res?" after "+res:""); }
+      else { label="PROJECTION UPDATE"; headline=tn+" now "+ch.newProb+"% to draw "+ch.newOpp+" in the Round of 32"; }
+      delta=Math.abs(dd)+"%"; dir=dd>=0?"up":"down";
+    } else {
+      headline=tn+" projected to meet "+(opp.name||"the field")+" in the Round of 32";
+    }
+    var parts=[]; if(opp.name) parts.push(opp.name+" "+opp.prob+"%");
+    alts.slice(0,2).forEach(function(a){ parts.push(a.name+" "+a.prob+"%"); });
+    if(field!=null) parts.push("field "+field+"%");
+    var ticker=parts.join(" · "); if(res) ticker+=" · updated after "+res;
+    document.getElementById("tlabel").value=label;
+    document.getElementById("thead").value=headline;
+    document.getElementById("tdelta").value=delta;
+    document.getElementById("tdir").value=dir;
+    document.getElementById("tticker").value=ticker;
+    update();
+    if(!busy) statusEl.textContent=tn+" ticker from live projections.";
+  }
   function drawCooked(){
     statusEl.textContent="Reading the standings…";
     return fetch(STANDINGS_URL).then(function(r){return r.json();}).then(function(d){
@@ -862,6 +898,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         if(type==="goal" && !goalSquad){ loadGoalSquad(); }
         else if(type==="stats" && !statsData){ loadStatsTeam(); }
         else if(type==="quote" && !quoteSquad){ loadQuoteSquad(); update(); }
+        else if(type==="ticker"){ fillTickerCopy(); }
         else if(type!=="live"){ update(); }
       });
     });
@@ -874,6 +911,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     document.getElementById("roastReset").addEventListener("click", function(){ fillVerdictCopy(); update(); });
     document.getElementById("dpreset").addEventListener("change", function(){ fillDefCopy(); update(); });
     document.getElementById("oteam").addEventListener("change", drawOddsboard);
+    document.getElementById("tteam").addEventListener("change", fillTickerCopy);
     document.getElementById("qteam").addEventListener("change", function(){ quoteSquad=null; loadQuoteSquad(); update(); });
     document.getElementById("qplayer").addEventListener("change", quotePlayerPick);
     document.getElementById("defReset").addEventListener("click", function(){ fillDefCopy(); update(); });
