@@ -33,7 +33,7 @@
   .card .meta{font-size:13px;color:var(--muted);padding:10px 14px 4px}
   .acts{display:flex;gap:10px;padding:12px 14px 16px}
   .acts button{flex:1;padding:13px;border:0;border-radius:12px;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer}
-  .save{background:#222a35;color:var(--ink)}
+  .save,.edit{background:#222a35;color:var(--ink)}
   .share{background:var(--amber);color:#15171C}
   .empty{padding:64px 24px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:16px;font-size:15px}
   .setup{margin:14px 0;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
@@ -137,9 +137,11 @@
     var cv=document.createElement("canvas"); el.appendChild(cv);
     var meta=document.createElement("div"); meta.className="meta"; meta.textContent=c.matchup||""; el.appendChild(meta);
     var acts=document.createElement("div"); acts.className="acts";
+    var edit=document.createElement("button"); edit.className="edit"; edit.textContent="Edit";
     var save=document.createElement("button"); save.className="save"; save.textContent="Save";
     var share=document.createElement("button"); share.className="share"; share.textContent="Share";
-    acts.appendChild(save); acts.appendChild(share); el.appendChild(acts);
+    acts.appendChild(edit); acts.appendChild(save); acts.appendChild(share); el.appendChild(acts);
+    edit.addEventListener("click",function(){ try{ localStorage.setItem("studio-edit", JSON.stringify({type:c.type, params:c.params})); }catch(e){} location.href="/studio/"; });
     window.SportacleRender.renderTo(cv, c.type, c.params, 2);
     function blob(cb){ var big=document.createElement("canvas"); window.SportacleRender.renderTo(big,c.type,c.params,2).then(function(){ big.toBlob(cb,"image/png"); }); }
     function fname(){ return "sportacle-"+k+"-"+String(c.ts).slice(-6)+".png"; }

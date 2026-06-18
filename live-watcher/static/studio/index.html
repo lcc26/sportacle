@@ -229,6 +229,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       var demo=new URLSearchParams(location.search).get("demo");
       if(demo){ var db=document.querySelector('#seg button[data-type="'+demo+'"]'); if(db) db.click(); }
       if(new URLSearchParams(location.search).get("live")){ var lb=document.querySelector('#seg button[data-type="live"]'); if(lb){ lb.click(); liveToggle(); } }
+      try{ var ed=localStorage.getItem("studio-edit"); if(ed){ localStorage.removeItem("studio-edit"); var o=JSON.parse(ed); applyEdit(o.type, o.params); } }catch(e){}
     });
     });
   }
@@ -252,6 +253,36 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     s.innerHTML=html;
   }
   function setSel(id,name){ var s=document.getElementById(id); for(var i=0;i<s.options.length;i++){ if(s.options[i].value===name){ s.selectedIndex=i; break; } } }
+  function codeName(code){ for(var i=0;i<TEAMS.length;i++){ if(TEAMS[i].code===code) return TEAMS[i].name; } return ""; }
+  // ---- open a live-feed card in the studio with its copy editable ----
+  function applyEdit(ctype, p){
+    var seg = ctype==="verdict"?"roast":ctype;  // goal/half/final/whowins map 1:1
+    var btn=document.querySelector('#seg button[data-type="'+seg+'"]');
+    if(!btn){ return; }
+    btn.click();
+    setTimeout(function(){ fillEdit(seg, p||{}); update(); statusEl.textContent="Opened for editing. Tweak the copy, then Download."; }, 70);
+  }
+  function setv(id,v){ var el=document.getElementById(id); if(el && v!=null) el.value=v; }
+  function fillEdit(seg, p){
+    if(seg==="roast"){
+      if(p.an) setSel("rteamA", p.an); if(p.bn) setSel("rteamB", p.bn);
+      setv("rstamp", p.stamp); setv("rheadline", p.headline||""); setv("rreceipt", p.receipt||"");
+      setv("rscore", (p.markA||p.markB)?"":((p.hg!=null&&p.ag!=null)?(p.hg+"-"+p.ag):""));
+      for(var k in VERDICTS){ if(VERDICTS[k].stamp===p.stamp){ document.getElementById("verdict").value=k; break; } }
+    } else if(seg==="final"||seg==="half"){
+      if(p.an) setSel("home", p.an); if(p.bn) setSel("away", p.bn);
+      setv("hg", p.hg); setv("ag", p.ag); setv("note", p.note||"");
+      if(p.label && p.label!=="Full Time" && p.label!=="Half Time") setv("rhead", p.label);
+    } else if(seg==="whowins"){
+      if(p.an) setSel("home", p.an); if(p.bn) setSel("away", p.bn);
+      setv("rhead", p.headline||""); setv("note", p.prompt||"");
+    } else if(seg==="goal"){
+      if(p.team) setSel("gteam", p.team);
+      setv("ghead", p.headline||""); setv("scorer", p.scorer||""); setv("gmin", p.min||"");
+      setv("gscore", p.score||""); setv("gtag", p.tag||""); if(p.jersey) setv("gjersey", p.jersey);
+      if(p.vs){ var vn=codeName(p.vs); if(vn) setSel("gvs", vn); }
+    }
+  }
   function opt(id){ var s=document.getElementById(id); return s.options[s.selectedIndex]||{}; }
   function val(id){ return (document.getElementById(id).value||"").trim(); }
 
@@ -578,8 +609,12 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     var c=document.createElement("canvas"); tile.appendChild(c);
     var meta=document.createElement("div"); meta.className="meta";
     var s=document.createElement("span"); s.innerHTML="<b>"+kind+"</b> · "+label;
-    var a=document.createElement("a"); a.textContent="Download"; meta.appendChild(s); meta.appendChild(a); tile.appendChild(meta);
+    var ed=document.createElement("a"); ed.textContent="Edit"; ed.style.marginRight="12px";
+    var a=document.createElement("a"); a.textContent="Download";
+    var links=document.createElement("span"); links.appendChild(ed); links.appendChild(a);
+    meta.appendChild(s); meta.appendChild(links); tile.appendChild(meta);
     feed.insertBefore(tile, feed.firstChild);
+    ed.addEventListener("click", function(){ applyEdit(cardType, params); });
     window.SportacleRender.renderTo(c, cardType, params, 1);
     a.addEventListener("click", function(){
       var big=document.createElement("canvas");
