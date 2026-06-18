@@ -99,6 +99,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
           <div class="field"><label>Score (optional)</label><input id="gscore" type="text" placeholder="e.g. 2-1"></div>
         </div>
         <div class="field"><label>Opponent (for scoreline, optional)</label><select id="gvs"></select></div>
+        <div class="field"><label>Jersey # (optional — adds a kit)</label><input id="gjersey" type="text" placeholder="e.g. 9"></div>
         <div class="field"><label>Tag (optional)</label><input id="gtag" type="text" placeholder="Sportacle"></div>
       </div>
 
@@ -179,6 +180,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       var p={team:tm.value||"", code:tm.getAttribute("data-code")||"", tc:tm.getAttribute("data-color")||"#1E9B4B", tag:val("gtag")||"Sportacle", home:"1"};
       if(val("scorer")) p.scorer=val("scorer");
       if(val("gmin")) p.min=val("gmin");
+      if(val("gjersey")) p.jersey=val("gjersey");
       var sc=val("gscore"), vs=opt("gvs");
       if(sc && vs && vs.value){ p.score=sc; p.vs=vs.getAttribute("data-code")||""; }
       return p;
