@@ -73,9 +73,10 @@
   var PASS="lariat-r32";
   // Feed URL first (so it is set before the gate can auto-unlock and start()):
   // ?feed= persists, else previously saved value. Blank -> show the setup card.
+  var FEED_DEFAULT="https://sportacle-live-production.up.railway.app/feed.json";
   var qFeed=new URLSearchParams(location.search).get("feed");
   if(qFeed){ localStorage.setItem("sportacle-feed", qFeed); }
-  function feedUrl(){ return localStorage.getItem("sportacle-feed")||""; }
+  function feedUrl(){ return localStorage.getItem("sportacle-feed")||FEED_DEFAULT; }
 
   var gate=document.getElementById("gate"), app=document.getElementById("app");
   function unlock(){ gate.style.display="none"; app.hidden=false; start(); }
