@@ -27,6 +27,11 @@ jobs:
       - name: Run the engine
         run: python3 engine/run.py
 
+      - name: Generate per-pairing share pages and OG cards
+        env:
+          CHROME_BIN: google-chrome
+        run: python3 card-gen/gen_share.py
+
       - name: Deploy web to Netlify production
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}

@@ -97,7 +97,10 @@ function matchCard(m, i){
   // Share copy. Brand rule: NO em/en dashes. Use a colon and parentheses.
   var pctPhrase = p == null ? '' : ' (' + p + '%)';
   var shareText = aName + "'s most likely Round of 32 opponent: " + bName + pctPhrase + '. Per-team projection by @TheSportacle';
-  var shareUrl = SITE_URL + '/#' + anchor;
+  // Per-pairing share URL is a REAL page (web/r32/<slug>/) that serves this
+  // pairing's own og:image + meta, so the social preview is pairing-specific.
+  // Scrapers ignore #fragments, so the old /#m-<slug> always unfurled the default.
+  var shareUrl = SITE_URL + '/r32/' + (slug(aName) || ('row-' + i)) + '/';
   var xHref = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText) + '&url=' + encodeURIComponent(shareUrl);
 
   var aImg = aCode ? '<img class="flag" src="flags/' + aCode + '.png" alt="" loading="lazy" width="84" height="56">' : '<span class="flag flag-blank" aria-hidden="true"></span>';

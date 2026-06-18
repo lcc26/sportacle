@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Khand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#11161F;
+  --teamA:#1E9B4B;
+  --teamB:#C8102E;
+  --display:"Khand",sans-serif;
+  --ui:"Barlow Semi Condensed",sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1200px;height:630px;overflow:hidden;background:#fff}
+body{font-family:var(--ui);-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
+.card{position:relative;width:1200px;height:630px;overflow:hidden;background:#fff}
+
+/* diagonal split: seam from x=660 (top) to x=540 (bottom) */
+.half{position:absolute;top:0;bottom:0;width:1200px;height:630px;overflow:hidden}
+.left{clip-path:polygon(0 0, 660px 0, 540px 630px, 0 630px);background:var(--teamA)}
+.left .flag{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:100% 50%;filter:saturate(1.12) contrast(1.04)}
+.right{clip-path:polygon(660px 0, 1200px 0, 1200px 630px, 540px 630px);background:var(--teamB)}
+.right .flag{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:0% 50%;filter:saturate(1.10) contrast(1.04)}
+.scrim-t{position:absolute;top:0;left:0;right:0;height:210px;z-index:3;background:linear-gradient(180deg, rgba(0,0,0,.64) 0%, rgba(0,0,0,.26) 58%, rgba(0,0,0,0) 100%)}
+.scrim-b{position:absolute;bottom:0;left:0;right:0;height:240px;z-index:3;background:linear-gradient(0deg, rgba(0,0,0,.66) 0%, rgba(0,0,0,.28) 52%, rgba(0,0,0,0) 100%)}
+
+.seam{position:absolute;inset:0;z-index:6;pointer-events:none;background:#fff;clip-path:polygon(653px 0, 667px 0, 547px 630px, 533px 630px)}
+.seam-edge{position:absolute;inset:0;z-index:5;pointer-events:none;background:linear-gradient(180deg,var(--teamA),var(--teamB));clip-path:polygon(647px 0, 673px 0, 553px 630px, 527px 630px);opacity:.9}
+
+/* name plates */
+.names{position:absolute;top:44px;left:0;right:0;z-index:20;display:flex;justify-content:space-between;padding:0 60px}
+.team{width:470px}
+.team.b{text-align:left}
+.team.k{text-align:right}
+.seed{font-family:var(--ui);font-weight:800;font-size:18px;letter-spacing:4px;text-transform:uppercase;margin-bottom:2px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.55)}
+.nm{font-family:var(--display);font-weight:700;line-height:.84;text-transform:uppercase;color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.6)}
+.nm.s1{font-size:90px}
+.nm.s2{font-size:72px}
+.nm.s3{font-size:54px}
+
+/* center VS medallion on the seam */
+.medal{position:absolute;left:50%;top:262px;transform:translate(-50%,-50%);z-index:22;width:120px;height:120px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:4px solid var(--ink);box-shadow:0 0 0 7px rgba(255,255,255,.94),0 18px 40px rgba(0,0,0,.38)}
+.medal:before{content:"";position:absolute;inset:9px;border-radius:50%;border:2px solid rgba(17,22,31,.22)}
+.vs{font-family:var(--display);font-weight:700;font-size:66px;line-height:1;color:var(--ink);letter-spacing:1px}
+
+/* lower stat band: the big probability in a white plate */
+.stat{position:absolute;left:50%;bottom:104px;transform:translateX(-50%);z-index:21;text-align:center;padding:12px 44px 14px;border-radius:24px;background:rgba(255,255,255,.96);box-shadow:0 16px 42px rgba(0,0,0,.26)}
+.bignum{font-family:var(--display);font-weight:700;font-size:128px;line-height:.74;color:var(--ink);letter-spacing:-2px;display:inline-block}
+.bignum .pc{font-size:66px;vertical-align:top;margin-left:3px;-webkit-text-fill-color:var(--teamA);color:var(--teamA)}
+.statlabel{font-family:var(--ui);font-weight:800;font-size:20px;letter-spacing:6px;text-transform:uppercase;color:var(--ink);margin-top:6px}
+
+/* brand footer */
+.brand{position:absolute;left:0;right:0;bottom:30px;z-index:22;text-align:center}
+.wm{font-family:var(--display);font-weight:700;font-size:32px;letter-spacing:2px;text-transform:uppercase;line-height:1;color:var(--ink);display:inline-block;padding:6px 20px;border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 8px 22px rgba(0,0,0,.22)}
+.wm b{color:var(--teamA);font-weight:700}
+.hand{font-family:var(--ui);font-weight:700;font-size:16px;letter-spacing:2px;text-transform:uppercase;color:#fff;margin-left:12px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="half left">
+    <img class="flag" id="flagA" alt="">
+    <div class="scrim-t"></div><div class="scrim-b"></div>
+  </div>
+  <div class="half right">
+    <img class="flag" id="flagB" alt="">
+    <div class="scrim-t"></div><div class="scrim-b"></div>
+  </div>
+  <div class="seam-edge"></div>
+  <div class="seam"></div>
+
+  <div class="names">
+    <div class="team b">
+      <div class="seed" id="noteA">Winner Group X</div>
+      <div class="nm s1" id="nameA">Team A</div>
+    </div>
+    <div class="team k">
+      <div class="seed" id="noteB">Projected opponent</div>
+      <div class="nm s1" id="nameB">Team B</div>
+    </div>
+  </div>
+
+  <div class="medal"><span class="vs">VS</span></div>
+
+  <div class="stat">
+    <div class="bignum" id="prob">38<span class="pc">%</span></div>
+    <div class="statlabel">Opponent Probability</div>
+  </div>
+
+  <div class="brand">
+    <span class="wm">Sport<b>acle</b></span><span class="hand">gosportacle.com</span>
+  </div>
+</div>
+
+<script>
+(function(){
+  var q = new URLSearchParams(window.location.search);
+  function val(k, d){ var v = q.get(k); return (v === null || v === "") ? d : v; }
+  var an = val("an", "Team A"), bn = val("bn", "Team B");
+  var ac = val("ac", ""), bc = val("bc", "");
+  var acolor = val("acolor", "#1E9B4B"), bcolor = val("bcolor", "#C8102E");
+  var anote = val("anote", ""), bnote = val("bnote", "Projected opponent");
+  var prob = val("prob", "0");
+
+  var root = document.documentElement.style;
+  root.setProperty("--teamA", acolor);
+  root.setProperty("--teamB", bcolor);
+  if (ac) document.getElementById("flagA").src = "../web/flags/" + ac + ".png";
+  if (bc) document.getElementById("flagB").src = "../web/flags/" + bc + ".png";
+
+  function applyName(elId, name){
+    var el = document.getElementById(elId);
+    var words = name.split(" ");
+    var longest = 0, ch = name.length;
+    for (var i = 0; i < words.length; i++){ if (words[i].length > longest) longest = words[i].length; }
+    var cls = "nm s1";
+    if (ch > 9 && words.length > 1) cls = "nm s2";
+    if (longest > 9 || ch > 16) cls = "nm s3";
+    el.className = cls;
+    if (words.length > 1 && ch > 9) el.innerHTML = words.join("<br>");
+    else el.textContent = name;
+  }
+  applyName("nameA", an);
+  applyName("nameB", bn);
+  document.getElementById("noteA").textContent = anote ? anote.toUpperCase() : "";
+  document.getElementById("noteB").textContent = bnote ? bnote.toUpperCase() : "";
+  var p = parseInt(prob, 10); if (isNaN(p)) p = 0;
+  document.getElementById("prob").innerHTML = p + '<span class="pc">%</span>';
+})();
+</script>
+</body>
+</html>
