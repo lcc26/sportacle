@@ -15,7 +15,11 @@
   .brand{display:flex;align-items:center;gap:9px;font-family:"Khand";font-weight:700;font-size:22px;letter-spacing:1px}
   .orb{width:22px;height:22px;border-radius:50%;background:conic-gradient(from 210deg,#1E9B4B,#FFC400,#0A3478,#ED2939,#1E9B4B)}
   .brand b{color:var(--amber);font-weight:700}
-  .stat{font-size:12px;color:var(--muted);text-align:right;line-height:1.4}
+  .navtog{display:inline-flex;gap:4px;background:#0E1116;border:1px solid var(--line);border-radius:10px;padding:4px}
+  .navtog a{padding:7px 15px;border-radius:7px;font-weight:700;font-size:13px;text-decoration:none;color:var(--muted);font-family:"Inter",system-ui,sans-serif;line-height:1}
+  .navtog a.on{background:var(--amber);color:#15171C}
+  .navrow{display:flex;width:max-content;margin:12px auto 0}
+  .statbar{max-width:560px;margin:0 auto;padding:8px 16px 0;font-size:12px;color:var(--muted);text-align:center;line-height:1.4}
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ED2939;margin-right:5px;animation:pulse 1.6s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
   main{max-width:560px;margin:0 auto;padding:16px}
@@ -54,8 +58,9 @@
 <div id="app" hidden>
   <header>
     <div class="brand"><span class="orb"></span>SPORT<b>ACLE</b> LIVE</div>
-    <div class="stat" id="stat">Connecting…</div>
   </header>
+  <nav class="navtog navrow"><a href="/studio/">Studio</a><a href="/live/" class="on">Live</a></nav>
+  <div class="statbar" id="stat">Connecting…</div>
   <main>
     <div id="setup" class="setup" hidden>
       <div style="font-weight:600">Point this at your watcher</div>

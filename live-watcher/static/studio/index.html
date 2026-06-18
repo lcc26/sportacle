@@ -30,6 +30,10 @@ header{display:flex;align-items:center;gap:12px;padding:18px 24px;border-bottom:
 header .orb{width:22px;height:22px;border-radius:50%;background:conic-gradient(from 210deg,#1E9B4B,#FFC400,#0A3478,#ED2939,#1E9B4B)}
 header b{font-family:"Space Grotesk";font-weight:700;font-size:19px;letter-spacing:-.3px}
 header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600}
+.navtog{display:inline-flex;gap:4px;background:#0E1116;border:1px solid var(--line);border-radius:10px;padding:4px;margin-left:auto}
+.navtog a{padding:7px 16px;border-radius:7px;font-weight:700;font-size:13px;text-decoration:none;color:var(--muted);font-family:"Space Grotesk",system-ui,sans-serif;line-height:1;letter-spacing:.3px}
+.navtog a:hover{color:var(--ink)}
+.navtog a.on{background:var(--amber);color:#15171C}
 .layout{display:grid;grid-template-columns:380px 1fr;gap:0;min-height:calc(100vh - 61px)}
 .controls{padding:22px 24px;border-right:1px solid var(--line);overflow:auto}
 .seg{display:flex;flex-wrap:wrap;gap:6px;background:#0E1116;border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:22px}
@@ -82,7 +86,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
 </div>
 
 <div id="app" hidden>
-  <header><span class="orb"></span><b>Sportacle Studio</b><span>Internal</span></header>
+  <header><span class="orb"></span><b>Sportacle Studio</b><span>Internal</span>
+    <nav class="navtog"><a href="/studio/" class="on">Studio</a><a href="/live/">Live</a></nav>
+  </header>
   <div class="layout">
     <div class="controls">
       <div class="seg" id="seg">
