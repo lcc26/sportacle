@@ -1,0 +1,12 @@
+{
+  "words": {
+    "nil": { "word": "nil", "pron": "/nil/", "pos": "noun",
+      "def1": "the agreed outcome when neither side wishes to be interviewed afterward. see: %s.", "seeAlso": "goalless" },
+    "mid": { "word": "mid", "pron": "/mid/", "pos": "adjective",
+      "def1": "a match that ended before it started. see: %s.", "seeAlso": "nil all" },
+    "stalemate": { "word": "stalemate", "pron": "/stayl-mayt/", "pos": "noun",
+      "def1": "two teams who forgot how to win, meeting in their natural habitat. see: %s.", "seeAlso": "winless" },
+    "formality": { "word": "formality", "pron": "/for-mal-uh-tee/", "pos": "noun",
+      "def1": "a fixture whose result was filed before kickoff. see: %s.", "def2": "travel; see also business trip.", "seeAlso": "" }
+  }
+}

@@ -12,7 +12,7 @@ the phone never has to do the watching and nothing is missed while it sleeps.
 stdlib only (urllib, http.server, threading, json) -> no pip install, no
 third-party supply-chain surface. Run: PORT=8080 python watcher.py
 """
-import base64, json, os, posixpath, re, time, threading, unicodedata, urllib.request, urllib.error
+import base64, json, os, posixpath, random, re, time, threading, unicodedata, urllib.request, urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -52,6 +52,21 @@ def norm_name(s):
 def canon(s):
     n = norm_name(s)
     return CANON.get(n, n)
+
+VBANK = {}   # verdict copy bank from static/make/verdicts.json
+PWORDS = {}  # definition word bank from static/make/panel_words.json
+def load_banks():
+    global VBANK, PWORDS
+    try:
+        with open(os.path.join(STATIC_DIR, "make", "verdicts.json")) as f:
+            VBANK = json.load(f).get("verdicts") or {}
+    except Exception:
+        VBANK = {}
+    try:
+        with open(os.path.join(STATIC_DIR, "make", "panel_words.json")) as f:
+            PWORDS = json.load(f).get("words") or {}
+    except Exception:
+        PWORDS = {}
 
 TEAMS = []
 def load_teams():
@@ -307,49 +322,84 @@ def record_scoreline(ev):
     hs, as_ = ev["home"]["score"] or 0, ev["away"]["score"] or 0
     scorelines.add("%d-%d" % (min(hs, as_), max(hs, as_)))
 
+def apply_subs(text, names, nums):
+    si = [0]; di = [0]
+    def s(_m):
+        v = names[si[0]] if si[0] < len(names) else (names[-1] if names else "")
+        si[0] += 1; return str(v)
+    def d(_m):
+        v = nums[di[0]] if di[0] < len(nums) else (nums[-1] if nums else 0)
+        di[0] += 1; return str(v)
+    return re.sub(r"%d", d, re.sub(r"%s", s, str(text or "")))
+
+def fire_verdict(ev, vid, names=None, nums=None):
+    v = VBANK.get(vid)
+    if not v:
+        return
+    names = names or []; nums = nums or []
+    hl = apply_subs(random.choice(v.get("headlines") or [""]), names, nums)
+    rc = apply_subs(random.choice(v.get("receipts") or [""]), names, nums)
+    verdict_card(ev, vid, v.get("stamp", "VERDICT"), v.get("color", "#C8102E"), hl, rc, marks=bool(v.get("marks")))
+
+def emit_panel(ev, key):
+    P = PWORDS.get(key)
+    if not P or ("%s:panel" % ev["id"]) in seen:
+        return
+    hs, as_ = ev["home"]["score"] or 0, ev["away"]["score"] or 0
+    line = "%s %d-%d %s" % (team_name(ev["home"]["name"]), hs, as_, team_name(ev["away"]["name"]))
+    p = vs_params(ev)
+    p["score"] = "%d - %d" % (hs, as_); p["status"] = "FULL TIME"
+    p["word"] = P.get("word", ""); p["pron"] = P.get("pron", ""); p["pos"] = P.get("pos", "noun")
+    p["def1"] = (P.get("def1", "") or "").replace("%s", line)
+    p["def2"] = (P.get("def2", "") or "").replace("%s", line)
+    p["seeAlso"] = P.get("seeAlso", "")
+    add_card("%s:panel" % ev["id"], "Definition", "panel", p, P.get("word", "def"),
+             ev["home"]["name"] + " v " + ev["away"]["name"])
+
 def emit_verdicts(ev):
     hs, as_ = ev["home"]["score"] or 0, ev["away"]["score"] or 0
     hn, an_ = team_name(ev["home"]["name"]), team_name(ev["away"]["name"])
     total, margin, draw = hs + as_, abs(hs - as_), hs == as_
-    # Scorigami: a sorted scoreline not seen before (skip the dull low-scoring ones)
+    # Scorigami: a sorted scoreline not seen before (skip dull low-scoring ones)
     key = "%d-%d" % (min(hs, as_), max(hs, as_))
     fresh = key not in scorelines
     scorelines.add(key)
     if fresh and total >= 3:
-        verdict_card(ev, "scorigami", "SCORIGAMI", "#1E9B4B",
-                     "First %d-%d of the tournament" % (max(hs, as_), min(hs, as_)),
-                     "A scoreline we had not seen yet")
+        fire_verdict(ev, "scorigami", [], [max(hs, as_), min(hs, as_)])
     if margin >= 4:
         win, lose = (hn, an_) if hs > as_ else (an_, hn)
-        verdict_card(ev, "mercy", "MERCY RULE", "#C8102E",
-                     "%s put %s to bed" % (win, lose), "Somebody call it off")
-    if draw and total <= 2:
-        verdict_card(ev, "bore", "BORE DRAW", "#C8102E",
-                     "Mutually assured mediocrity", "90 minutes you will never get back")
+        fire_verdict(ev, "mercy", [win, lose])
+    if total >= 6:
+        fire_verdict(ev, "goalfest", [], [total])
+    both_winless = False
     if draw:
         wm = winless_map(); ch, ca = canon(ev["home"]["name"]), canon(ev["away"]["name"])
-        if wm and wm.get(ch, 1) == 0 and wm.get(ca, 1) == 0:
-            verdict_card(ev, "doublel", "NOBODY WINS", "#C8102E",
-                         "A point that helps neither", "Both still without a win", marks=True)
+        both_winless = bool(wm and wm.get(ch, 1) == 0 and wm.get(ca, 1) == 0)
+        if total <= 2:
+            fire_verdict(ev, "bore")
+        if both_winless:
+            fire_verdict(ev, "doublel")
+        # definition spoof on a draw: 0-0 -> nil, both winless -> stalemate, else -> mid
+        emit_panel(ev, "nil" if total == 0 else ("stalemate" if both_winless else "mid"))
+    # Comeback vs Bottled (need the halftime score)
     ht = ht_scores.get(ev["id"])
     if ht and ht[0] != ht[1]:
-        led_home = ht[0] > ht[1]
-        bottler = hn if (led_home and not (hs > as_)) else (an_ if ((not led_home) and not (as_ > hs)) else None)
-        if bottler:
-            verdict_card(ev, "bottled", "BOTTLED IT", "#C8102E",
-                         "%s led at the half. Then this." % bottler, "A lead is not a guarantee")
+        led_home = ht[0] > ht[1]; home_won = hs > as_; away_won = as_ > hs
+        if (led_home and away_won) or ((not led_home) and home_won):
+            fire_verdict(ev, "comeback", [an_ if away_won else hn])      # the team that was losing
+        elif (led_home and not home_won) or ((not led_home) and not away_won):
+            fire_verdict(ev, "bottled", [hn if led_home else an_])       # led, then drew
+    # Per-team stats: Allergic to the Net + Street Fight
     ts = team_stats(ev)
     if ts:
         for side in (ev["home"]["name"], ev["away"]["name"]):
-            s = ts.get(canon(side))
-            if s and s["shots"] >= 15 and s["goals"] == 0:
-                verdict_card(ev, "allergic", "ALLERGIC TO THE NET", "#ED2939",
-                             "All shots, no end product", "%s: %d shots, 0 goals" % (team_name(side), s["shots"]))
+            st = ts.get(canon(side))
+            if st and st["shots"] >= 15 and st["goals"] == 0:
+                fire_verdict(ev, "allergic", [team_name(side)], [st["shots"]])
                 break
         cards_total = sum((v["yel"] + v["red"]) for v in ts.values())
         if cards_total >= 8:
-            verdict_card(ev, "fight", "THAT WASN'T FOOTBALL", "#C8102E",
-                         "More cards than chances", "%d cards shown" % cards_total)
+            fire_verdict(ev, "fight", [], [cards_total])
 
 def detect(evs, seed):
     ft = False
@@ -518,6 +568,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     load_teams()
+    load_banks()
     load_state()
     threading.Thread(target=poll_loop, daemon=True).start()
     port = int(os.environ.get("PORT", "8080"))

@@ -172,6 +172,41 @@
     while (ctx.measureText(text).width > maxW && size > 15) { size -= 2; ctx.font = font(weight, size, fam); }
     ls(ctx, 0); return size;
   }
+  function wrapLines(ctx, text, maxW) {
+    var words = String(text).split(' '), lines = [], cur = '';
+    for (var i = 0; i < words.length; i++) {
+      var t = cur ? cur + ' ' + words[i] : words[i];
+      if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = words[i]; } else cur = t;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function fitWrap(ctx, text, weight, size, fam, maxW, maxLines, floor) {
+    while (size > (floor || 40)) {
+      ctx.font = font(weight, size, fam);
+      var lines = wrapLines(ctx, text, maxW);
+      if (lines.length <= maxLines) return { size: size, lines: lines };
+      size -= 4;
+    }
+    ctx.font = font(weight, size, fam);
+    return { size: size, lines: wrapLines(ctx, text, maxW) };
+  }
+  // owned cream "quote" silhouette (a pair of filled commas), drawn as a path so it is machine-identical
+  function drawQuoteGlyph(ctx, x, y, size, color, alpha) {
+    ctx.save(); ctx.globalAlpha = (alpha == null ? 1 : alpha); ctx.fillStyle = color;
+    var r = size * 0.26, gap = size * 0.30;
+    for (var k = 0; k < 2; k++) {
+      var ox = x + k * (r * 2 + gap);
+      ctx.beginPath();
+      ctx.arc(ox + r, y + r, r, 0, Math.PI * 2);
+      ctx.moveTo(ox + r * 0.15, y + r * 1.7);
+      ctx.quadraticCurveTo(ox + r * 0.9, y + r * 2.0, ox + r * 1.5, y + r * 0.6);
+      ctx.lineTo(ox + r * 1.9, y + r * 1.2);
+      ctx.quadraticCurveTo(ox + r * 0.9, y + r * 3.1, ox + r * 0.15, y + r * 1.7);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
   function drawStamp(ctx, cx, cy, text, color, scale) {
     scale = scale || 1; text = String(text || '').toUpperCase();
     ctx.save();
@@ -196,32 +231,87 @@
   }
   function renderVerdict(ctx, p, F) {
     drawVsBg(ctx, p, F);
+    // deepen the lower half so the punchline reads as the hero (verdict only)
+    var sc = ctx.createLinearGradient(0, W - 560, 0, W);
+    sc.addColorStop(0, 'rgba(12,15,20,0)'); sc.addColorStop(.5, 'rgba(12,15,20,.5)'); sc.addColorStop(1, 'rgba(12,15,20,.9)');
+    ctx.fillStyle = sc; ctx.fillRect(0, W - 560, W, 560);
+    // evidence: the scoreline (or L-marks for the draw verdicts)
     var hasScore = (p.hg != null && p.hg !== '' && p.ag != null && p.ag !== '');
     if (p.markA || p.markB) {
-      if (p.markA) drawSideMark(ctx, 262, 452, p.markA, '#C8102E');
-      if (p.markB) drawSideMark(ctx, 818, 452, p.markB, '#C8102E');
+      if (p.markA) drawSideMark(ctx, 262, 432, p.markA, p.acolor || '#C8102E');
+      if (p.markB) drawSideMark(ctx, 818, 432, p.markB, p.bcolor || '#C8102E');
     } else if (hasScore) {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 26; ctx.shadowOffsetY = 6; ctx.fillStyle = '#fff';
-      ctx.font = font('700', 168, KH); ctx.fillText(String(p.hg) + '  -  ' + String(p.ag), 540, 452);
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 6; ctx.fillStyle = '#fff';
+      ctx.font = font('700', 148, KH); ctx.fillText(String(p.hg) + '  -  ' + String(p.ag), 540, 404);
       ctx.restore();
     }
-    drawStamp(ctx, 540, 628, p.stamp || 'VERDICT', p.stampColor || '#C8102E', 1.06);
-    if (p.headline) {
-      var hs = fitFont(ctx, String(p.headline).toUpperCase(), '800', 31, BR, W - 170, 4);
-      pill(ctx, 540, W - 250, String(p.headline).toUpperCase(), {
-        font: font('800', hs, BR), lsp: 4, padX: 30, h: 58, bg: INK, color: '#fff',
-        shadow: { c: 'rgba(0,0,0,.3)', b: 26, oy: 10 }
-      });
+    // the verdict label: a clean top banner (not the hero). Rotated stamp only if stampTilt.
+    var stamp = String(p.stamp || 'VERDICT').toUpperCase(), scol = p.stampColor || '#C8102E';
+    if (p.stampTilt) {
+      drawStamp(ctx, 540, 432, stamp, scol, 1.0);
+    } else {
+      pill(ctx, 540, 76, stamp, { font: font('800', 33, BR), lsp: 6, padX: 30, h: 60, bg: '#F4F2EB', color: scol, shadow: { c: 'rgba(0,0,0,.35)', b: 24, oy: 8 } });
     }
-    if (p.receipt) {
-      var rs = fitFont(ctx, String(p.receipt).toUpperCase(), '700', 23, BR, W - 150, 2);
-      pill(ctx, 540, W - 184, String(p.receipt).toUpperCase(), {
-        font: font('700', rs, BR), lsp: 2, padX: 24, h: 46, bg: 'rgba(255,255,255,.94)', color: INK,
-        shadow: { c: 'rgba(0,0,0,.22)', b: 22, oy: 8 }
-      });
+    // HERO punchline: big Khand, wrapped, bottom-anchored, with the cream quote glyph behind
+    if (p.headline) {
+      var fwp = fitWrap(ctx, String(p.headline).toUpperCase(), '700', 104, KH, W - 152, 3, 52);
+      var lh = fwp.size * 0.86, n = fwp.lines.length, lastBase = 884, topBase = lastBase - (n - 1) * lh;
+      drawQuoteGlyph(ctx, 72, topBase - fwp.size * 0.96, 150, '#F4F2EB', 0.17);
+      ctx.font = font('700', fwp.size, KH); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#F4F2EB';
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 4;
+      for (var i = 0; i < n; i++) ctx.fillText(fwp.lines[i], 78, topBase + i * lh);
+      ctx.restore();
+      if (p.receipt) {
+        ctx.font = font('700', 24, BR); ls(ctx, 2); ctx.fillStyle = hexA('#F4F2EB', .72); ctx.textAlign = 'left';
+        ctx.fillText(String(p.receipt).toUpperCase(), 80, lastBase + 46); ls(ctx, 0);
+      }
     }
     drawBrand(ctx, p.acolor);
+  }
+  // ---- PANEL: a dictionary/knowledge-panel spoof (the "Battle of Mid" genre) ----
+  function renderPanel(ctx, p, F) {
+    var CREAM = '#F4F2EB', INKB = '#14171C', BLUE = '#0A3478', RED = '#C8102E';
+    ctx.fillStyle = CREAM; ctx.fillRect(0, 0, W, W);
+    fifaRibbon(ctx, 0, 10);
+    // scorebug
+    ctx.save(); ctx.shadowColor = 'rgba(20,23,28,.22)'; ctx.shadowBlur = 11; ctx.shadowOffsetY = 3;
+    drawMiniFlag(ctx, F.a, 150, 66, 112, 75); drawMiniFlag(ctx, F.b, 818, 66, 112, 75); ctx.restore();
+    ctx.fillStyle = INKB; ctx.font = font('800', 92, KH); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(p.score || '0 - 0'), 540, 112);
+    pill(ctx, 540, 176, String(p.status || 'FULL TIME').toUpperCase(), { font: font('800', 23, BR), lsp: 5, padX: 24, h: 44, bg: hexA(BLUE, .12), color: BLUE });
+    ctx.font = font('700', 27, BR); ls(ctx, 1); ctx.fillStyle = hexA(INKB, .7); ctx.textBaseline = 'middle';
+    ctx.fillText(String(p.an || '').toUpperCase(), 206, 176); ctx.fillText(String(p.bn || '').toUpperCase(), 874, 176); ls(ctx, 0);
+    // hairline
+    ctx.strokeStyle = hexA(INKB, .15); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(64, 252); ctx.lineTo(1016, 252); ctx.stroke();
+    // headword + pronunciation
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = INKB;
+    var word = String(p.word || 'mid'), wf = fitFont(ctx, word, '800', 150, KH, 640, 0);
+    ctx.font = font('800', wf, KH); ctx.fillText(word, 72, 408);
+    var ww = ctx.measureText(word).width;
+    if (p.pron) { ctx.font = font('400', 40, BR); ctx.fillStyle = hexA(INKB, .55); ctx.fillText(String(p.pron), 72 + ww + 24, 408); }
+    ctx.font = font('600', 34, BR); ls(ctx, 1); ctx.fillStyle = RED; ctx.fillText(String(p.pos || 'noun'), 80, 474); ls(ctx, 0);
+    // definitions (numbered, wrapped)
+    var y = 558;
+    function def(num, text) {
+      if (!text) return;
+      ctx.font = font('500', 44, BR); var lines = wrapLines(ctx, String(text), 870);
+      ctx.fillStyle = RED; ctx.font = font('700', 44, BR); ctx.fillText(num + '.', 80, y);
+      ctx.fillStyle = hexA(INKB, .85); ctx.font = font('500', 44, BR);
+      for (var i = 0; i < lines.length; i++) ctx.fillText(lines[i], 134, y + i * 56);
+      y += lines.length * 56 + 26;
+    }
+    def('1', p.def1 || ''); def('2', p.def2 || '');
+    if (p.seeAlso) {
+      var st = 'SEE ALSO: ' + String(p.seeAlso).toUpperCase();
+      ctx.font = font('600', 26, BR); var stw = ctx.measureText(st).width;
+      pill(ctx, 80 + stw / 2 + 22, Math.min(y + 8, 906), st, { font: font('600', 26, BR), lsp: 1, padX: 22, h: 46, bg: INKB, color: CREAM });
+    }
+    // cream footer wordmark (drawBrand is for dark cards)
+    fifaRibbon(ctx, W - 10, 10);
+    ctx.font = font('700', 36, KH); ls(ctx, 2); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    var t1 = 'SPORT', t2 = 'ACLE', b1 = ctx.measureText(t1).width, b2 = ctx.measureText(t2).width, fx = 540 - (b1 + b2) / 2, fy = W - 48;
+    ctx.fillStyle = INKB; ctx.fillText(t1, fx, fy); ctx.fillStyle = RED; ctx.fillText(t2, fx + b1, fy); ls(ctx, 0);
   }
   function drawScore(ctx, p) {
     var cx = 540, cy = 560;
@@ -571,7 +661,7 @@
       }
       return Promise.all([loadFlag(p.ac), loadFlag(p.bc)]).then(function (f) {
         var F = { a: f[0], b: f[1] };
-        if (type === 'whowins') renderWhoWins(ctx, p, F); else if (type === 'verdict') renderVerdict(ctx, p, F); else renderFinal(ctx, p, F);
+        if (type === 'whowins') renderWhoWins(ctx, p, F); else if (type === 'verdict') renderVerdict(ctx, p, F); else if (type === 'panel') renderPanel(ctx, p, F); else renderFinal(ctx, p, F);
       });
     });
   }
