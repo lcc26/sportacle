@@ -3,17 +3,20 @@
 
 Social scrapers (X, Facebook/Meta, etc.) ignore URL #fragments, so a deep link
 like gosportacle.com/#m-germany unfurls with the SITE-DEFAULT image. To get a
-per-pairing preview we need a REAL URL per pairing that serves its own og:image
-and meta. This script reads web/data/predictions.json and, for every subject card,
-writes:
+per-pairing preview we need a REAL URL per team that serves its own og:image and
+meta. This script reads web/data/predictions.json and writes:
 
-  web/og/<slug>.png         a 1200x630 landscape OG card (rendered from og-card.html)
-  web/r32/<slug>/index.html  a real page with that pairing's OG/Twitter meta, that
-                             also forwards a human visitor to the live board card.
+  web/og/<slug>.png         a 1200x630 landscape OG card per SUBJECT card (the 16
+                            group winners/runners-up that host a slot).
+  web/r32/<slug>/index.html a real page for EVERY team that appears:
+                            * a subject team -> its own card.
+                            * an opponent/alternate (e.g. Croatia) -> the card
+                              where it is featured, framed from its side, so the
+                              link is never dead and the preview is relevant.
 
-It regenerates every run, so when the engine rewrites predictions.json on each
-deploy these stay in sync with the live projection. Stdlib only; Chrome is taken
-from $CHROME_BIN (GitHub runners ship google-chrome) or the local macOS path.
+Each page also forwards a human visitor to the live board card. It regenerates
+every run so the pages track the live projection. Stdlib only; Chrome comes from
+$CHROME_BIN (GitHub runners ship google-chrome) or the local macOS path.
 """
 
 import json
@@ -51,17 +54,12 @@ def display_name(name):
 
 
 def slugify(name):
-    s = re.sub(r"[^a-z0-9]+", "-", name.lower())
-    return s.strip("-")
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
 def esc(s):
     return (
-        str(s)
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
+        str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
     )
 
 
@@ -83,34 +81,22 @@ def build_query(team, opponent):
 def render_card(query, out_png):
     url = "file://" + urllib.parse.quote(OG_HTML) + "?" + query
     cmd = [
-        CHROME,
-        "--headless=new",
-        "--disable-gpu",
-        "--hide-scrollbars",
-        "--allow-file-access-from-files",
-        "--force-device-scale-factor=2",
-        "--window-size=1200,630",
-        "--virtual-time-budget=4000",
-        "--screenshot=" + out_png,
-        url,
+        CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars",
+        "--allow-file-access-from-files", "--force-device-scale-factor=2",
+        "--window-size=1200,630", "--virtual-time-budget=4000",
+        "--screenshot=" + out_png, url,
     ]
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def page_html(team_name, opp_name, prob, slug, note):
-    """A real, scrapeable page: per-pairing OG/Twitter meta + a brand fallback that
-    forwards a human to the live board card (scrapers do not run the script)."""
-    title = "%s's most likely Round of 32 opponent: %s" % (team_name, opp_name)
-    desc = "Sportacle projects %s (%s%%) as the team most likely waiting for %s in the World Cup Round of 32. See all 16 projections, updated as results land." % (
-        opp_name,
-        prob,
-        team_name,
-    )
-    page_url = "%s/r32/%s/" % (SITE, slug)
-    img_url = "%s/og/%s.png" % (SITE, slug)
-    board_url = "%s/#m-%s" % (SITE, slug)
-    t, o, d = esc(title), esc(opp_name), esc(desc)
-    return """<!DOCTYPE html>
+def write_page(page_slug, img_slug, board_slug, title, desc, headline):
+    """Write web/r32/<page_slug>/index.html: per-pairing OG/Twitter meta + a brand
+    fallback that forwards a human to the live board card."""
+    page_url = "%s/r32/%s/" % (SITE, page_slug)
+    img_url = "%s/og/%s.png" % (SITE, img_slug)
+    board_url = "%s/#m-%s" % (SITE, board_slug)
+    t, d = esc(title), esc(desc)
+    html = """<!DOCTYPE html>
 <html lang="en-US">
 <head>
 <meta charset="utf-8">
@@ -164,59 +150,93 @@ try { location.replace("%(board_url)s"); } catch (e) {}
 <body>
 <main class="wrap">
   <a class="brand" href="/"><span class="orb"></span>Sportacle</a>
-  <img class="card-img" src="/og/%(slug)s.png" alt="%(title)s" width="1200" height="630">
-  <h1>%(team)s most likely meet %(opp)s</h1>
+  <img class="card-img" src="/og/%(img_slug)s.png" alt="%(title)s" width="1200" height="630">
+  <h1>%(headline)s</h1>
   <p>%(desc)s</p>
   <a class="cta" href="%(board_url)s">See the full Round of 32 board</a>
 </main>
 </body>
 </html>
 """ % {
-        "gtm": GTM_ID,
-        "title": t,
-        "desc": d,
-        "page_url": page_url,
-        "img_url": img_url,
-        "board_url": board_url,
-        "slug": slug,
-        "team": esc(team_name),
-        "opp": o,
+        "gtm": GTM_ID, "title": t, "desc": d, "page_url": page_url, "img_url": img_url,
+        "img_slug": img_slug, "board_url": board_url, "headline": esc(headline),
     }
+    out_dir = os.path.join(PAGE_DIR, page_slug)
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, "index.html"), "w") as f:
+        f.write(html)
 
 
 def main():
     with open(PREDICTIONS) as f:
         data = json.load(f)
-
     os.makedirs(OG_DIR, exist_ok=True)
     os.makedirs(PAGE_DIR, exist_ok=True)
 
-    count = 0
-    for m in data.get("matchups", []):
-        team = m["team"]
-        opp = m["opponent"]
-        team_name = display_name(team["name"])
-        opp_name = display_name(opp["name"])
+    matchups = data.get("matchups", [])
+
+    # Pass 1: subject cards (the 16 hosts). Render the OG image + its own page.
+    subjects = []
+    for m in matchups:
+        team, opp = m["team"], m["opponent"]
+        tname, oname = display_name(team["name"]), display_name(opp["name"])
+        slug = slugify(tname)
         prob = opp.get("prob", "")
-        slug = slugify(team_name)
+        subjects.append({"slug": slug, "tname": tname, "oname": oname, "prob": prob})
 
         out_png = os.path.join(OG_DIR, slug + ".png")
-        # Never let a render hiccup (e.g. Chrome missing in CI) break the deploy:
-        # degrade to the previously committed card and keep the page fresh.
         try:
             render_card(build_query(team, opp), out_png)
         except Exception as e:
             print("  WARN: card render failed for %s (%s); keeping existing image" % (slug, e))
 
-        page_dir = os.path.join(PAGE_DIR, slug)
-        os.makedirs(page_dir, exist_ok=True)
-        with open(os.path.join(page_dir, "index.html"), "w") as f:
-            f.write(page_html(team_name, opp_name, prob, slug, team.get("note", "")))
+        title = "%s's most likely Round of 32 opponent: %s" % (tname, oname)
+        desc = ("Sportacle projects %s (%s%%) as the team most likely waiting for %s in the "
+                "World Cup Round of 32. See all 16 projections, updated as results land." % (oname, prob, tname))
+        write_page(slug, slug, slug, title, desc, "%s most likely meet %s" % (tname, oname))
+        print("  subject: %s vs %s -> /r32/%s/" % (tname, oname, slug))
 
-        print("  %s vs %s -> /r32/%s/" % (team_name, opp_name, slug))
-        count += 1
+    subject_slugs = {s["slug"] for s in subjects}
 
-    print("Wrote %d share pages + OG cards" % count)
+    # Pass 2: every OTHER team that appears (opponent or alternate) gets a page that
+    # points at the card featuring it, framed from its side. Keep the appearance with
+    # the highest probability (prefer a true opponent over an alternate on a tie).
+    featured = {}  # team_slug -> {prob, is_opp, subj_slug, subj_name, team_name}
+    for m in matchups:
+        subj_name = display_name(m["team"]["name"])
+        subj_slug = slugify(subj_name)
+        candidates = [(display_name(m["opponent"]["name"]), m["opponent"].get("prob", 0), True)]
+        for alt in m.get("alternates", []):
+            candidates.append((display_name(alt.get("name", "")), alt.get("prob", 0), False))
+        for tname, prob, is_opp in candidates:
+            if not tname:
+                continue
+            tslug = slugify(tname)
+            if tslug in subject_slugs:
+                continue  # this team has its own subject page
+            try:
+                pr = int(prob)
+            except (TypeError, ValueError):
+                pr = 0
+            cur = featured.get(tslug)
+            better = (cur is None) or (pr > cur["prob"]) or (pr == cur["prob"] and is_opp and not cur["is_opp"])
+            if better:
+                featured[tslug] = {"prob": pr, "is_opp": is_opp, "subj_slug": subj_slug,
+                                   "subj_name": subj_name, "team_name": tname}
+
+    for tslug, info in featured.items():
+        sub, team_name, pr = info["subj_name"], info["team_name"], info["prob"]
+        if info["is_opp"]:
+            title = "%s is %s's most likely Round of 32 opponent (%s%%)" % (team_name, sub, pr)
+        else:
+            title = "%s is in the mix to be %s's Round of 32 opponent (%s%%)" % (team_name, sub, pr)
+        desc = ("Sportacle projects %s among the teams that could meet %s in the World Cup "
+                "Round of 32, at %s%%. See all 16 projections, updated as results land." % (team_name, sub, pr))
+        write_page(tslug, info["subj_slug"], info["subj_slug"], title, desc,
+                   "%s could meet %s" % (team_name, sub))
+        print("  alias:   %s -> features on /r32/%s/ card" % (team_name, info["subj_slug"]))
+
+    print("Wrote %d subject pages + %d team aliases" % (len(subjects), len(featured)))
 
 
 if __name__ == "__main__":

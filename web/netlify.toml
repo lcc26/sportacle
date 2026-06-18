@@ -14,3 +14,11 @@
   for = "/flags/*"
   [headers.values]
     Cache-Control = "public, max-age=604800"
+
+# Real /r32/<team>/ pages are static files and serve normally; any team URL that
+# was not generated (a team not in the current projection) falls back to the
+# homepage instead of a 404. Static files take precedence over this rule.
+[[redirects]]
+  from = "/r32/*"
+  to = "/"
+  status = 302
