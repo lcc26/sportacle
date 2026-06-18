@@ -189,6 +189,7 @@ ht_scores = {}   # eventId -> [hs, as] captured at halftime (for Bottled It)
 scorelines = set()  # sorted "min-max" strings seen this tournament (for Scorigami)
 proj_last = {"iso": "", "map": {}}  # last seen predictions snapshot (for the shift tracker)
 shifts = []      # newest first: how projections moved after each result
+predictions_raw = {}  # last fetched predictions.json (served same-origin for the studio)
 seeding = True
 
 def save_state():
@@ -454,10 +455,12 @@ def trigger_deploy():
 def poll_projections():
     # Fetch the public projections; when updated_iso changes (a new result was
     # folded in), diff each team's projected R32 opponent and log the shifts.
+    global predictions_raw
     try:
         d = get_json(PREDICTIONS_URL + "?t=" + str(int(time.time())))
     except Exception:
         return
+    predictions_raw = d   # cache for /predictions.json (studio reads it same-origin)
     iso = d.get("updated_iso") or ""
     cur = {}
     for m in (d.get("matchups") or []):
@@ -488,7 +491,23 @@ def poll_projections():
                               "result": d.get("last_result", ""), "changes": changes})
             del shifts[40:]
             print("[shift] %d projection changes after %s" % (len(changes), d.get("last_result", "")), flush=True)
+            emit_movers(d, changes, iso)
         proj_last["iso"] = iso; proj_last["map"] = cur; save_state()
+
+def emit_movers(d, changes, iso):
+    # Market Movers card: risers + fallers from one projection shift
+    risers = [c for c in changes if c["newProb"] > c["oldProb"]]
+    fallers = [c for c in changes if c["newProb"] < c["oldProb"]]
+    if len(risers) + len(fallers) < 2:
+        return
+    def mv(c):
+        return {"code": c.get("code", ""), "team": team_name(c["team"]),
+                "oldOpp": c["oldOpp"], "newOpp": c["newOpp"], "delta": abs(c["newProb"] - c["oldProb"])}
+    params = {"result": "After " + (d.get("last_result", "") or "a result"),
+              "footnote": "Projected R32 opponent odds",
+              "risers": [mv(c) for c in risers[:3]], "fallers": [mv(c) for c in fallers[:3]]}
+    add_card("%s:movers" % iso, "Market Movers", "movers", params,
+             d.get("last_result", ""), "the bracket moved")
 
 def poll_loop():
     global seeding
@@ -549,6 +568,8 @@ class Handler(BaseHTTPRequestHandler):
             with LOCK:
                 payload = json.dumps({"updated": int(time.time() * 1000), "current_iso": proj_last.get("iso", ""), "shifts": shifts})
             return self._send(200, payload, "application/json", {"Cache-Control": "no-store"})
+        if path in ("/predictions.json", "/predictions.json/"):
+            return self._send(200, json.dumps(predictions_raw or {}), "application/json", {"Cache-Control": "no-store"})
         return self._serve_static(path)
     def _serve_static(self, path):
         if path == "/":

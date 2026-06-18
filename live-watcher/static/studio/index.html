@@ -103,6 +103,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <button data-type="quote">Quote</button>
         <button data-type="definition">Definition</button>
         <button data-type="cooked">Cooked</button>
+        <button data-type="tierboard">Tier List</button>
+        <button data-type="oddsboard">Odds</button>
+        <button data-type="movers">Movers</button>
         <button data-type="live">Live</button>
       </div>
 
@@ -200,6 +203,20 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <div class="field"><label>Definition 2 (optional)</label><input id="ddef2" type="text" maxlength="130" placeholder="blank to hide"></div>
         <div class="field"><label>See also (optional)</label><input id="dsee" type="text" maxlength="24" placeholder="blank to hide"></div>
         <button type="button" class="linkbtn" id="defReset">Reset to this preset</button>
+      </div>
+
+      <!-- bracket tier list (table-derived) -->
+      <div id="tierboardFields" class="hide">
+        <div class="minfo">Ranks the whole field by the table so far and buckets S/A/B/C/F. Pure argument bait. Pulls live standings.</div>
+      </div>
+      <!-- odds board (projection-derived) -->
+      <div id="oddsboardFields" class="hide">
+        <div class="field"><label>Team</label><select id="oteam"></select></div>
+        <div class="minfo">A team's projected Round of 32 opponent odds, Polymarket style. From the live projections.</div>
+      </div>
+      <!-- market movers (shift-derived) -->
+      <div id="moversFields" class="hide">
+        <div class="minfo">Risers and fallers from the latest result that moved the bracket. From the projection shift log.</div>
       </div>
 
       <!-- who's cooked (standings-derived) fields -->
@@ -574,6 +591,58 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
   function prov(b,home,hs,as){ var my=home?hs:as,opp=home?as:hs; var p={P:b.P+1,W:b.W,D:b.D,L:b.L,GD:b.GD+(my-opp),Pts:b.Pts,GF:b.GF+my}; if(my>opp){p.W++;p.Pts+=3;}else if(my<opp){p.L++;}else{p.D++;p.Pts++;} return p; }
   function liveGames(d){ return (d.events||[]).filter(function(e){return ((((e.competitions||[])[0]||{}).status||{}).type||{}).state==="in";}).map(function(e){ var c=e.competitions[0].competitors, hm=c.filter(function(x){return x.homeAway==="home";})[0], aw=c.filter(function(x){return x.homeAway==="away";})[0]; return {h:hm.team.displayName,a:aw.team.displayName,hs:parseInt(hm.score||"0",10)||0,as:parseInt(aw.score||"0",10)||0}; }); }
   // ---- Who's Cooked: rank teams closest to a group-stage exit (fewest pts, worst GD) ----
+  // ---- Bracket Tier List: rank the whole field by the table, bucket S/A/B/C/F ----
+  var TIER_SUBS=["Ranked by how their group is going. Argue.","By the table so far. Yes it is harsh. Post anyway.","The committee has met. It is not taking questions.","Four tiers and a graveyard."];
+  function drawTierboard(){
+    statusEl.textContent="Reading the table…";
+    return fetch(STANDINGS_URL).then(function(r){return r.json();}).then(function(d){
+      var teams=[];
+      (d.children||[]).forEach(function(g){ (((g.standings||{}).entries)||[]).forEach(function(en){
+        if(numS(en,"gamesPlayed")<=0) return;
+        teams.push({name:(en.team||{}).displayName||"", pts:numS(en,"points"), gd:numS(en,"pointDifferential"), gf:numS(en,"pointsFor")});
+      }); });
+      if(!teams.length){ statusEl.textContent="No games played yet."; return; }
+      teams.sort(function(a,b){ return (b.pts-a.pts)||(b.gd-a.gd)||(b.gf-a.gf); });
+      var N=teams.length, cuts=[Math.round(N*0.15),Math.round(N*0.35),Math.round(N*0.65),Math.round(N*0.85)];
+      var TIERS=[{label:"S",color:"#1E9B4B",teams:[]},{label:"A",color:"#FFC400",teams:[]},{label:"B",color:"#0A3478",teams:[]},{label:"C",color:"#11161F",teams:[]},{label:"F",color:"#ED2939",teams:[]}];
+      teams.forEach(function(t,i){ var ti=i<cuts[0]?0:i<cuts[1]?1:i<cuts[2]?2:i<cuts[3]?3:4; TIERS[ti].teams.push({code:teamCode(t.name)}); });
+      var params={title:"THE BRACKET TIER LIST",subtitle:pickOne(TIER_SUBS),context:"Group stage",footnote:"World Cup 2026",tiers:TIERS};
+      return window.SportacleRender.renderTo(cv,"tierboard",params,2).then(function(){ if(!busy) statusEl.textContent=N+" teams ranked."; });
+    }).catch(function(e){ statusEl.textContent="Standings load failed: "+e; });
+  }
+  // ---- Market Movers: latest projection shift -> risers + fallers ----
+  function drawMovers(){
+    statusEl.textContent="Reading the shift log…";
+    return fetch("/shifts.json").then(function(r){return r.json();}).then(function(d){
+      var sh=(d.shifts||[])[0];
+      if(!sh){ statusEl.textContent="No projection shifts logged yet (they appear after a result moves the board)."; return window.SportacleRender.renderTo(cv,"movers",{result:"Waiting for the next result",footnote:"Projected R32 opponent odds",risers:[],fallers:[]},2); }
+      var risers=[],fallers=[];
+      (sh.changes||[]).forEach(function(c){ var o={code:c.code,team:c.team,oldOpp:c.oldOpp,newOpp:c.newOpp,delta:Math.abs(c.newProb-c.oldProb)};
+        if(c.newProb>=c.oldProb) risers.push(o); else fallers.push(o); });
+      var params={result:"After "+(sh.result||"a result"),footnote:"Projected R32 opponent odds",risers:risers.slice(0,3),fallers:fallers.slice(0,3)};
+      return window.SportacleRender.renderTo(cv,"movers",params,2).then(function(){ if(!busy) statusEl.textContent="Bracket movement after "+(sh.result||"the latest result")+"."; });
+    }).catch(function(e){ statusEl.textContent="Shift feed failed: "+e; });
+  }
+  // ---- Odds Board: one team's projected R32 opponent odds ----
+  var PREDS=null;
+  function loadPreds(){ if(PREDS) return Promise.resolve(PREDS); return fetch("/predictions.json").then(function(r){return r.json();}).then(function(d){ PREDS=d; return d; }); }
+  function fillOddsTeams(){
+    loadPreds().then(function(d){ var sel=document.getElementById("oteam"); if(sel.options.length>1){ drawOddsboard(); return; }
+      sel.innerHTML=(d.matchups||[]).map(function(m){ return '<option value="'+(m.team||{}).name+'">'+(m.team||{}).name+'</option>'; }).join("")||'<option value="">No projections yet</option>';
+      drawOddsboard();
+    }).catch(function(e){ statusEl.textContent="Projections load failed: "+e; });
+  }
+  function drawOddsboard(){
+    loadPreds().then(function(d){
+      var tn=opt("oteam").value, m=(d.matchups||[]).filter(function(x){return (x.team||{}).name===tn;})[0];
+      if(!m){ statusEl.textContent="No projection for that team yet."; return; }
+      var opp=m.opponent||{}, rows=[{code:opp.code,name:opp.name,prob:opp.prob,color:opp.color}];
+      (m.alternates||[]).forEach(function(a){ rows.push({code:teamCode(a.name),name:a.name,prob:a.prob,color:teamColor(a.name)}); });
+      if(m.field!=null) rows.push({field:true,name:"The field",prob:m.field});
+      var params={code:(m.team||{}).code,team:(m.team||{}).name,color:(m.team||{}).color,question:"Most likely R32 opponent",footnote:"Live projection, subject to chaos",rows:rows};
+      return window.SportacleRender.renderTo(cv,"oddsboard",params,2).then(function(){ if(!busy) statusEl.textContent=(m.team||{}).name+" projection."; });
+    }).catch(function(e){ statusEl.textContent="Projections load failed: "+e; });
+  }
   function drawCooked(){
     statusEl.textContent="Reading the standings…";
     return fetch(STANDINGS_URL).then(function(r){return r.json();}).then(function(d){
@@ -740,6 +809,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(type==="infographic"){ drawInfographic(); return; }
     if(type==="standings"){ drawStandingsCard(); return; }
     if(type==="cooked"){ drawCooked(); return; }
+    if(type==="tierboard"){ drawTierboard(); return; }
+    if(type==="movers"){ drawMovers(); return; }
+    if(type==="oddsboard"){ fillOddsTeams(); return; }
     render().then(function(){ if(!busy) statusEl.textContent="Preview updated."; }).catch(function(e){ statusEl.textContent="Render error: "+e; });
   }
   function update(){ clearTimeout(t); t=setTimeout(draw,120); }
@@ -757,6 +829,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         document.getElementById("defFields").classList.toggle("hide", type!=="definition");
         document.getElementById("quoteFields").classList.toggle("hide", type!=="quote");
         document.getElementById("cookedFields").classList.toggle("hide", type!=="cooked");
+        document.getElementById("tierboardFields").classList.toggle("hide", type!=="tierboard");
+        document.getElementById("oddsboardFields").classList.toggle("hide", type!=="oddsboard");
+        document.getElementById("moversFields").classList.toggle("hide", type!=="movers");
         document.getElementById("liveFields").classList.toggle("hide", type!=="live");
         document.getElementById("scoreRow").classList.toggle("hide", type==="whowins");
         document.getElementById("stage").hidden=(type==="live");
@@ -776,6 +851,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     document.getElementById("verdict").addEventListener("change", function(){ fillVerdictCopy(); update(); });
     document.getElementById("roastReset").addEventListener("click", function(){ fillVerdictCopy(); update(); });
     document.getElementById("dpreset").addEventListener("change", function(){ fillDefCopy(); update(); });
+    document.getElementById("oteam").addEventListener("change", drawOddsboard);
     document.getElementById("qteam").addEventListener("change", function(){ quoteSquad=null; loadQuoteSquad(); update(); });
     document.getElementById("qplayer").addEventListener("change", quotePlayerPick);
     document.getElementById("defReset").addEventListener("click", function(){ fillDefCopy(); update(); });
@@ -809,6 +885,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(type==="definition"){ return "sportacle-def-"+slug(val("dword")||"word")+"-"+ts+".png"; }
     if(type==="quote"){ return "sportacle-quote-"+(opt("qteam").getAttribute("data-code")||"x")+"-"+ts+".png"; }
     if(type==="cooked"){ return "sportacle-cooked-"+ts+".png"; }
+    if(type==="tierboard"){ return "sportacle-tierlist-"+ts+".png"; }
+    if(type==="movers"){ return "sportacle-movers-"+ts+".png"; }
+    if(type==="oddsboard"){ return "sportacle-odds-"+(opt("oteam").getAttribute("data-code")||slug(opt("oteam").value)||"x")+"-"+ts+".png"; }
     return "sportacle-"+type+"-"+(opt("home").getAttribute("data-code")||"x")+"-"+(opt("away").getAttribute("data-code")||"x")+"-"+(val("hg")||0)+"-"+(val("ag")||0)+"-"+ts+".png";
   }
   var dlBtn=document.getElementById("dl");
@@ -816,7 +895,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(busy) return; busy=true; dlBtn.disabled=true;
     var name=fname(); statusEl.textContent="Rendering...";
     clearTimeout(t);
-    (type==="infographic"?drawInfographic():type==="standings"?drawStandingsCard():type==="cooked"?drawCooked():render()).then(function(){
+    (type==="infographic"?drawInfographic():type==="standings"?drawStandingsCard():type==="cooked"?drawCooked():type==="tierboard"?drawTierboard():type==="movers"?drawMovers():type==="oddsboard"?drawOddsboard():render()).then(function(){
       cv.toBlob(function(blob){
         if(!blob){ busy=false; dlBtn.disabled=false; statusEl.textContent="Export failed."; return; }
         var url=URL.createObjectURL(blob), a=document.createElement("a");

@@ -659,6 +659,106 @@
     if (p.footnote) { ctx.font = font('700', 17, BR); ls(ctx, 2); ctx.fillStyle = MUTE; ctx.fillText(String(p.footnote).toUpperCase(), fx + bw1 + bw2 + 16, fy + 1); ls(ctx, 0); }
   }
 
+  // shared cream-card footer (wordmark + optional footnote)
+  function creamFooter(ctx, footnote) {
+    var INKB = '#14171C', RED = '#C8102E', MUTE = '#8A93A0';
+    fifaRibbon(ctx, W - 10, 10);
+    ctx.font = font('700', 36, KH); ls(ctx, 2); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    var t1 = 'SPORT', t2 = 'ACLE', b1 = ctx.measureText(t1).width, b2 = ctx.measureText(t2).width, fx = 540 - (b1 + b2) / 2, fy = W - 54;
+    ctx.fillStyle = INKB; ctx.fillText(t1, fx, fy); ctx.fillStyle = RED; ctx.fillText(t2, fx + b1, fy); ls(ctx, 0);
+    if (footnote) { ctx.font = font('700', 17, BR); ls(ctx, 2); ctx.fillStyle = MUTE; ctx.fillText(String(footnote).toUpperCase(), fx + b1 + b2 + 16, fy + 1); ls(ctx, 0); }
+  }
+  function creamHead(ctx, cx, cy, r) {
+    orb(ctx, cx, cy, r);
+    ctx.fillStyle = '#14171C'; ctx.font = font('700', 28, KH); ls(ctx, 1); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('SPORTACLE', cx + 38, cy + 1); ls(ctx, 0);
+  }
+
+  // ---- BRACKET TIER LIST (whole field bucketed S/A/B/C/F) ----
+  function renderTierboard(ctx, p, flags) {
+    var CREAM = '#F4F2EB', INKB = '#14171C', RED = '#C8102E', MUTE = '#8A93A0';
+    ctx.fillStyle = CREAM; ctx.fillRect(0, 0, W, W); fifaRibbon(ctx, 0, 10);
+    creamHead(ctx, 86, 96, 24);
+    if (p.context) { ctx.font = font('700', 22, BR); ls(ctx, 1); ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillStyle = MUTE; ctx.fillText(String(p.context).toUpperCase(), 1016, 97); ls(ctx, 0); }
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'; ctx.fillStyle = INKB;
+    var ts = fitFont(ctx, String(p.title || '').toUpperCase(), '700', 66, KH, W - 128, 0); ctx.font = font('700', ts, KH); ctx.fillText(String(p.title || '').toUpperCase(), 64, 206);
+    if (p.subtitle) { ctx.font = font('700', 24, BR); ls(ctx, 1); ctx.fillStyle = RED; ctx.fillText(String(p.subtitle).toUpperCase(), 66, 244); ls(ctx, 0); }
+    var tiers = (p.tiers || []).filter(function (t) { return (t.teams || []).length; });
+    var top = 288, bandH = tiers.length ? Math.min(122, (W - 150 - top) / tiers.length) : 122;
+    var maxRow = 1; tiers.forEach(function (t) { if (t.teams.length > maxRow) maxRow = t.teams.length; });
+    var gap = 12, chipW = Math.min(72, Math.floor((840 - (maxRow - 1) * gap) / maxRow)), chipH = Math.round(chipW * 0.67);
+    tiers.forEach(function (t, i) {
+      var by = top + i * bandH;
+      rrect(ctx, 28, by + 8, 62, bandH - 16, 12); ctx.fillStyle = t.color; ctx.fill();
+      ctx.fillStyle = contrastInk(t.color); ctx.font = font('700', 46, KH); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(t.label), 59, by + bandH / 2);
+      rrect(ctx, 102, by + 8, W - 130, bandH - 16, 12); ctx.fillStyle = hexA(t.color, .14); ctx.fill();
+      var x = 118, cy = by + bandH / 2;
+      t.teams.forEach(function (tm) {
+        ctx.save(); ctx.shadowColor = 'rgba(20,23,28,.2)'; ctx.shadowBlur = 7; ctx.shadowOffsetY = 2;
+        drawMiniFlag(ctx, flags[tm.code], x, cy - chipH / 2, chipW, chipH); ctx.restore();
+        x += chipW + gap;
+      });
+    });
+    creamFooter(ctx, p.footnote);
+  }
+
+  // ---- ODDS BOARD (one team's projected R32 opponent odds) ----
+  function renderOddsboard(ctx, p, flags) {
+    var CREAM = '#F4F2EB', INKB = '#14171C', LINE = '#E6E2D8', MUTE = '#8A93A0', RED = '#C8102E';
+    ctx.fillStyle = CREAM; ctx.fillRect(0, 0, W, W); fifaRibbon(ctx, 0, 10);
+    creamHead(ctx, 84, 70, 22);
+    ctx.save(); ctx.shadowColor = 'rgba(20,23,28,.22)'; ctx.shadowBlur = 11; ctx.shadowOffsetY = 3; drawMiniFlag(ctx, flags[p.code], 64, 150, 132, 88); ctx.restore();
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'; ctx.fillStyle = INKB;
+    var hs = fitFont(ctx, String(p.team || '').toUpperCase(), '700', 70, KH, 600, 0); ctx.font = font('700', hs, KH); ctx.fillText(String(p.team || '').toUpperCase(), 214, 222);
+    ctx.font = font('700', 26, BR); ls(ctx, 1); ctx.fillStyle = RED; ctx.fillText(String(p.question || 'Most likely R32 opponent').toUpperCase(), 216, 262); ls(ctx, 0);
+    if (p.survival) { var sw = (function () { ctx.font = font('800', 24, BR); return ctx.measureText(String(p.survival).toUpperCase()).width; })(); pill(ctx, 1016 - (sw + 48) / 2, 196, String(p.survival).toUpperCase(), { font: font('800', 24, BR), lsp: 1, padX: 24, h: 50, bg: hexA('#1E9B4B', .14), color: '#1E9B4B' }); }
+    ctx.strokeStyle = hexA(INKB, .15); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(64, 322); ctx.lineTo(1016, 322); ctx.stroke();
+    var rows = (p.rows || []).slice(0, 6), n = rows.length, maxP = 0; rows.forEach(function (r) { if (+r.prob > maxP) maxP = +r.prob; });
+    var top = 360, rowH = n ? Math.min(96, (W - top - 140) / n) : 96;
+    for (var i = 0; i < n; i++) {
+      var r = rows[i], cy = top + i * rowH + rowH / 2, col = r.field ? MUTE : (r.color || RED);
+      if (i) { ctx.strokeStyle = LINE; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(64, cy - rowH / 2); ctx.lineTo(1016, cy - rowH / 2); ctx.stroke(); }
+      if (r.field) { orb(ctx, 110, cy, 28); } else { ctx.save(); ctx.shadowColor = 'rgba(20,23,28,.2)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2; drawMiniFlag(ctx, flags[r.code], 70, cy - 30, 90, 60); ctx.restore(); }
+      ctx.font = font('700', 38, BR); ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = INKB;
+      var nm = String(r.name || ''), maxW = 300; if (ctx.measureText(nm).width > maxW) { while (nm.length > 3 && ctx.measureText(nm + '…').width > maxW) nm = nm.slice(0, -1); nm += '…'; }
+      ctx.fillText(nm, 186, cy + 1);
+      var bx = 540, bw = 358, bh = 32, fillw = maxP ? Math.max(14, (+r.prob / maxP) * bw) : 0;
+      ctx.fillStyle = LINE; rrect(ctx, bx, cy - bh / 2, bw, bh, bh / 2); ctx.fill();
+      var bg = ctx.createLinearGradient(bx, 0, bx + bw, 0); bg.addColorStop(0, shade(col, 0.78)); bg.addColorStop(1, col); ctx.fillStyle = bg; rrect(ctx, bx, cy - bh / 2, fillw, bh, bh / 2); ctx.fill();
+      ctx.font = font('700', 48, KH); ctx.textAlign = 'right'; ctx.fillStyle = INKB; ctx.fillText(String(r.prob) + '%', 1016, cy + 2);
+    }
+    creamFooter(ctx, p.footnote);
+  }
+
+  // ---- MARKET MOVERS (risers + fallers from a projection shift) ----
+  function renderMovers(ctx, p, flags) {
+    var CREAM = '#F4F2EB', INKB = '#14171C', RED = '#C8102E', GRN = '#1E9B4B', REDD = '#ED2939';
+    ctx.fillStyle = CREAM; ctx.fillRect(0, 0, W, W); fifaRibbon(ctx, 0, 10);
+    creamHead(ctx, 84, 70, 22);
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'; ctx.fillStyle = INKB; ctx.font = font('700', 62, KH); ctx.fillText('THE BRACKET MOVED', 64, 172);
+    if (p.result) { ctx.font = font('700', 24, BR); ls(ctx, 1); ctx.fillStyle = RED; ctx.fillText(String(p.result).toUpperCase(), 66, 208); ls(ctx, 0); }
+    var y = { v: 258 };
+    function section(label, col, items, up) {
+      if (!items.length) return;
+      ctx.font = font('700', 26, BR); ls(ctx, 5); ctx.fillStyle = col; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(label, 64, y.v); ls(ctx, 0); y.v += 22;
+      items.forEach(function (c) {
+        var ty = y.v, th = 84;
+        rrect(ctx, 40, ty, 1000, th - 12, 16); ctx.fillStyle = hexA(col, .09); ctx.fill();
+        ctx.save(); ctx.shadowColor = 'rgba(20,23,28,.2)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2; drawMiniFlag(ctx, flags[c.code], 62, ty + (th - 12 - 56) / 2, 84, 56); ctx.restore();
+        ctx.fillStyle = INKB; ctx.font = font('700', 40, KH); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(String(c.team || '').toUpperCase(), 168, ty + 34);
+        ctx.font = font('600', 23, BR); ctx.fillStyle = hexA(INKB, .6); ctx.fillText(String(c.oldOpp || '') + '  ->  ' + String(c.newOpp || ''), 168, ty + 60);
+        var chip = (up ? '+' : '-') + Math.abs(c.delta) + '%';
+        ctx.font = font('700', 30, BR); var cw = ctx.measureText(chip).width + 40;
+        pill(ctx, 1012 - cw / 2, ty + (th - 12) / 2, chip, { font: font('700', 30, BR), lsp: 0, padX: 20, h: 48, bg: col, color: '#fff' });
+        y.v += th;
+      });
+      y.v += 12;
+    }
+    section('RISERS', GRN, (p.risers || []).slice(0, 3), true);
+    section('FALLERS', REDD, (p.fallers || []).slice(0, 3), false);
+    creamFooter(ctx, p.footnote);
+  }
+
   // ---- STANDINGS (group table, provisional during live games) ----
   function renderStandingsCard(ctx, p, flags) {
     var live = !!p.live, accent = live ? '#C8102E' : '#1E9B4B';
@@ -707,6 +807,18 @@
         return Promise.all(codes.map(loadFlag)).then(function (imgs) {
           var fmap = {}; codes.forEach(function (c, i) { fmap[c] = imgs[i]; });
           if (type === 'standings') renderStandingsCard(ctx, p, fmap); else renderLeaderboard(ctx, p, fmap);
+        });
+      }
+      if (type === 'oddsboard' || type === 'movers' || type === 'tierboard') {
+        var cds = [];
+        if (type === 'oddsboard') { if (p.code) cds.push(p.code); (p.rows || []).forEach(function (r) { if (r.code) cds.push(r.code); }); }
+        else if (type === 'movers') { (p.risers || []).concat(p.fallers || []).forEach(function (c) { if (c.code) cds.push(c.code); }); }
+        else { (p.tiers || []).forEach(function (t) { (t.teams || []).forEach(function (x) { if (x.code) cds.push(x.code); }); }); }
+        return Promise.all(cds.map(loadFlag)).then(function (imgs) {
+          var fmap = {}; cds.forEach(function (c, i) { fmap[c] = imgs[i]; });
+          if (type === 'oddsboard') renderOddsboard(ctx, p, fmap);
+          else if (type === 'movers') renderMovers(ctx, p, fmap);
+          else renderTierboard(ctx, p, fmap);
         });
       }
       if (type === 'goal') {
