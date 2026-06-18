@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sportacle Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Khand:wght@500;600;700&family=Barlow+Semi+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0E1116;--panel:#171C24;--line:#262D38;--ink:#F4F2EB;--muted:#9AA7B8;--amber:#FFC400;--green:#1E9B4B}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;min-height:100vh;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  header{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;background:rgba(14,17,22,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:9px;font-family:"Khand";font-weight:700;font-size:22px;letter-spacing:1px}
+  .orb{width:22px;height:22px;border-radius:50%;background:conic-gradient(from 210deg,#1E9B4B,#FFC400,#0A3478,#ED2939,#1E9B4B)}
+  .brand b{color:var(--amber);font-weight:700}
+  .stat{font-size:12px;color:var(--muted);text-align:right;line-height:1.4}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ED2939;margin-right:5px;animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  main{max-width:560px;margin:0 auto;padding:16px}
+  .feed{display:flex;flex-direction:column;gap:18px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+  .card .head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px}
+  .kind{font-family:"Barlow Semi Condensed";font-weight:800;letter-spacing:1.2px;text-transform:uppercase;font-size:13px;color:var(--amber)}
+  .kind.goal{color:#FFC400}.kind.final{color:#37C46A}.kind.half{color:#7FB2FF}.kind.whowins{color:#FFC400}
+  .when{font-size:12px;color:var(--muted)}
+  .card canvas{display:block;width:100%;height:auto;background:#0B0E13}
+  .card .meta{font-size:13px;color:var(--muted);padding:10px 14px 4px}
+  .acts{display:flex;gap:10px;padding:12px 14px 16px}
+  .acts button{flex:1;padding:13px;border:0;border-radius:12px;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer}
+  .save{background:#222a35;color:var(--ink)}
+  .share{background:var(--amber);color:#15171C}
+  .empty{padding:64px 24px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:16px;font-size:15px}
+  .setup{margin:14px 0;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+  .setup input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#0E1116;color:var(--ink);margin-top:8px;font-size:15px}
+  .setup button{margin-top:10px;width:100%;padding:12px;border:0;border-radius:10px;background:var(--amber);color:#15171C;font-weight:700;font-size:15px}
+  #gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--bg);z-index:20}
+  #gate form{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:28px;width:100%;max-width:360px;text-align:center}
+  #gate input{width:100%;padding:13px;border-radius:11px;border:1px solid var(--line);background:#0E1116;color:var(--ink);margin:14px 0;font-size:16px}
+  #gate button{width:100%;padding:13px;border:0;border-radius:11px;background:var(--amber);color:#15171C;font-weight:700;font-size:15px}
+  .err{color:#ED6A78;font-size:13px;min-height:16px}
+</style>
+</head>
+<body>
+<div id="gate"><form id="gateForm">
+  <div class="brand" style="justify-content:center;margin-bottom:6px"><span class="orb"></span>SPORT<b>ACLE</b></div>
+  <p style="color:var(--muted);font-size:13px;margin:0">Live card feed</p>
+  <input id="pass" type="password" placeholder="Passphrase" autocomplete="off" autocapitalize="off">
+  <div class="err" id="gateErr"></div>
+  <button type="submit">Enter</button>
+</form></div>
+
+<div id="app" hidden>
+  <header>
+    <div class="brand"><span class="orb"></span>SPORT<b>ACLE</b> LIVE</div>
+    <div class="stat" id="stat">Connecting…</div>
+  </header>
+  <main>
+    <div id="setup" class="setup" hidden>
+      <div style="font-weight:600">Point this at your watcher</div>
+      <div style="color:var(--muted);font-size:13px;margin-top:4px">Paste the Railway URL (the watcher's /feed.json).</div>
+      <input id="feedUrl" type="url" placeholder="https://your-app.up.railway.app/feed.json">
+      <button id="feedSave">Save</button>
+    </div>
+    <div class="feed" id="feed"><div class="empty">Waiting for the first card. Goals, halftime, full time and upcoming fixtures will appear here as they happen.</div></div>
+  </main>
+</div>
+
+<script src="/studio/render.js"></script>
+<script>
+(function(){
+  var PASS="lariat-r32";
+  // Feed URL first (so it is set before the gate can auto-unlock and start()):
+  // ?feed= persists, else previously saved value. Blank -> show the setup card.
+  var qFeed=new URLSearchParams(location.search).get("feed");
+  if(qFeed){ localStorage.setItem("sportacle-feed", qFeed); }
+  function feedUrl(){ return localStorage.getItem("sportacle-feed")||""; }
+
+  var gate=document.getElementById("gate"), app=document.getElementById("app");
+  function unlock(){ gate.style.display="none"; app.hidden=false; start(); }
+  if(localStorage.getItem("studio-ok")==="1") unlock();
+  document.getElementById("gateForm").addEventListener("submit",function(e){
+    e.preventDefault();
+    if(document.getElementById("pass").value===PASS){ localStorage.setItem("studio-ok","1"); unlock(); }
+    else document.getElementById("gateErr").textContent="Incorrect.";
+  });
+
+  var seen={}, started=false;
+  function start(){
+    if(started) return; started=true;
+    var setup=document.getElementById("setup");
+    if(!feedUrl()){
+      setup.hidden=false;
+      document.getElementById("feedSave").addEventListener("click",function(){
+        var v=(document.getElementById("feedUrl").value||"").trim();
+        if(v){ localStorage.setItem("sportacle-feed", v); setup.hidden=true; poll(); }
+      });
+    }
+    poll(); setInterval(poll, 30000);
+  }
+
+  function fmtAgo(ts){
+    var s=Math.max(0,Math.floor((Date.now()-ts)/1000));
+    if(s<60) return s+"s ago";
+    var m=Math.floor(s/60); if(m<60) return m+"m ago";
+    var h=Math.floor(m/60); return h+"h ago";
+  }
+  function setStat(txt, live){ document.getElementById("stat").innerHTML=(live?'<span class="dot"></span>':'')+txt; }
+
+  function poll(){
+    var u=feedUrl(); if(!u) return;
+    fetch(u,{cache:"no-store"}).then(function(r){return r.json();}).then(function(d){
+      render(d.cards||[]);
+      var liveish=(d.cards||[]).some(function(c){return c.kind==="Goal"||c.kind==="Half";});
+      setStat((d.cards||[]).length+" cards · updated "+fmtAgo(d.updated||Date.now()), liveish);
+    }).catch(function(){ setStat("Feed unreachable · retrying", false); });
+  }
+
+  function render(list){
+    var feed=document.getElementById("feed");
+    var empty=feed.querySelector(".empty"); if(empty && list.length) empty.remove();
+    // newest first; add any not yet shown (prepend so newest stays on top)
+    for(var i=list.length-1;i>=0;i--){
+      var c=list[i]; if(seen[c.id]) continue; seen[c.id]=1;
+      feed.insertBefore(tile(c), feed.firstChild);
+    }
+    // refresh the "x ago" labels
+    Array.prototype.forEach.call(feed.querySelectorAll("[data-ts]"),function(el){ el.textContent=fmtAgo(+el.getAttribute("data-ts")); });
+  }
+
+  function tile(c){
+    var el=document.createElement("div"); el.className="card";
+    var k=(c.kind||"").toLowerCase().replace(/\s/g,"");
+    el.innerHTML='<div class="head"><span class="kind '+k+'">'+esc(c.kind)+'</span><span class="when" data-ts="'+c.ts+'">'+fmtAgo(c.ts)+'</span></div>';
+    var cv=document.createElement("canvas"); el.appendChild(cv);
+    var meta=document.createElement("div"); meta.className="meta"; meta.textContent=c.matchup||""; el.appendChild(meta);
+    var acts=document.createElement("div"); acts.className="acts";
+    var save=document.createElement("button"); save.className="save"; save.textContent="Save";
+    var share=document.createElement("button"); share.className="share"; share.textContent="Share";
+    acts.appendChild(save); acts.appendChild(share); el.appendChild(acts);
+    window.SportacleRender.renderTo(cv, c.type, c.params, 2);
+    function blob(cb){ var big=document.createElement("canvas"); window.SportacleRender.renderTo(big,c.type,c.params,2).then(function(){ big.toBlob(cb,"image/png"); }); }
+    function fname(){ return "sportacle-"+k+"-"+String(c.ts).slice(-6)+".png"; }
+    save.addEventListener("click",function(){ blob(function(b){ if(!b)return; var u=URL.createObjectURL(b),a=document.createElement("a"); a.href=u; a.download=fname(); document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(u);},1500); }); });
+    share.addEventListener("click",function(){
+      blob(function(b){ if(!b)return; var file=new File([b],fname(),{type:"image/png"});
+        if(navigator.canShare && navigator.canShare({files:[file]})){ navigator.share({files:[file],title:c.matchup||"Sportacle"}).catch(function(){}); }
+        else { var u=URL.createObjectURL(b),a=document.createElement("a"); a.href=u; a.download=fname(); a.click(); setTimeout(function(){URL.revokeObjectURL(u);},1500); }
+      });
+    });
+    return el;
+  }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];}); }
+})();
+</script>
+</body>
+</html>

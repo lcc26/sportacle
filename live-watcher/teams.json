@@ -1,0 +1,242 @@
+[
+{
+"name": "Algeria",
+"code": "dz",
+"color": "#006233"
+},
+{
+"name": "Argentina",
+"code": "ar",
+"color": "#75AADB"
+},
+{
+"name": "Australia",
+"code": "au",
+"color": "#00843D"
+},
+{
+"name": "Austria",
+"code": "at",
+"color": "#ED2939"
+},
+{
+"name": "Belgium",
+"code": "be",
+"color": "#ED2939"
+},
+{
+"name": "Bosnia and Herzegovina",
+"code": "ba",
+"color": "#002395"
+},
+{
+"name": "Brazil",
+"code": "br",
+"color": "#1E9B4B"
+},
+{
+"name": "Canada",
+"code": "ca",
+"color": "#D52B1E"
+},
+{
+"name": "Cape Verde",
+"code": "cv",
+"color": "#003893"
+},
+{
+"name": "Colombia",
+"code": "co",
+"color": "#FCD116"
+},
+{
+"name": "Croatia",
+"code": "hr",
+"color": "#C8102E"
+},
+{
+"name": "Curacao",
+"code": "cw",
+"color": "#002B7F"
+},
+{
+"name": "Czechia",
+"code": "cz",
+"color": "#11457E"
+},
+{
+"name": "DR Congo",
+"code": "cd",
+"color": "#007FFF"
+},
+{
+"name": "Ecuador",
+"code": "ec",
+"color": "#FFD100"
+},
+{
+"name": "Egypt",
+"code": "eg",
+"color": "#C8102E"
+},
+{
+"name": "England",
+"code": "gb-eng",
+"color": "#CF142B"
+},
+{
+"name": "France",
+"code": "fr",
+"color": "#0055A4"
+},
+{
+"name": "Germany",
+"code": "de",
+"color": "#2B2B2B"
+},
+{
+"name": "Ghana",
+"code": "gh",
+"color": "#CE1126"
+},
+{
+"name": "Haiti",
+"code": "ht",
+"color": "#00209F"
+},
+{
+"name": "Iran",
+"code": "ir",
+"color": "#239F40"
+},
+{
+"name": "Iraq",
+"code": "iq",
+"color": "#007A3D"
+},
+{
+"name": "Ivory Coast",
+"code": "ci",
+"color": "#F77F00"
+},
+{
+"name": "Japan",
+"code": "jp",
+"color": "#BC002D"
+},
+{
+"name": "Jordan",
+"code": "jo",
+"color": "#007A3D"
+},
+{
+"name": "Mexico",
+"code": "mx",
+"color": "#0B6B3A"
+},
+{
+"name": "Morocco",
+"code": "ma",
+"color": "#C1272D"
+},
+{
+"name": "Netherlands",
+"code": "nl",
+"color": "#EC8B00"
+},
+{
+"name": "New Zealand",
+"code": "nz",
+"color": "#1B1B1B"
+},
+{
+"name": "Norway",
+"code": "no",
+"color": "#BA0C2F"
+},
+{
+"name": "Panama",
+"code": "pa",
+"color": "#005293"
+},
+{
+"name": "Paraguay",
+"code": "py",
+"color": "#D52B1E"
+},
+{
+"name": "Portugal",
+"code": "pt",
+"color": "#1B5E20"
+},
+{
+"name": "Qatar",
+"code": "qa",
+"color": "#8A1538"
+},
+{
+"name": "Saudi Arabia",
+"code": "sa",
+"color": "#006C35"
+},
+{
+"name": "Scotland",
+"code": "gb-sct",
+"color": "#0065BF"
+},
+{
+"name": "Senegal",
+"code": "sn",
+"color": "#00853F"
+},
+{
+"name": "South Africa",
+"code": "za",
+"color": "#007749"
+},
+{
+"name": "South Korea",
+"code": "kr",
+"color": "#0A3478"
+},
+{
+"name": "Spain",
+"code": "es",
+"color": "#C60B1E"
+},
+{
+"name": "Sweden",
+"code": "se",
+"color": "#006AA7"
+},
+{
+"name": "Switzerland",
+"code": "ch",
+"color": "#D52B1E"
+},
+{
+"name": "Tunisia",
+"code": "tn",
+"color": "#E70013"
+},
+{
+"name": "Türkiye",
+"code": "tr",
+"color": "#E30A17"
+},
+{
+"name": "United States",
+"code": "us",
+"color": "#3C3B6E"
+},
+{
+"name": "Uruguay",
+"code": "uy",
+"color": "#0038A8"
+},
+{
+"name": "Uzbekistan",
+"code": "uz",
+"color": "#1EB53A"
+}
+]
