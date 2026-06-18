@@ -313,6 +313,17 @@
   function shade(h, f) { var c = hexRgb(h); function cl(v) { return Math.max(0, Math.min(255, Math.round(v))); } return 'rgb(' + cl(c[0] * f) + ',' + cl(c[1] * f) + ',' + cl(c[2] * f) + ')'; }
   function contrastInk(h) { return lum(h) > 0.62 ? '#11161F' : '#ffffff'; }
   function hexA(h, a) { var c = hexRgb(h); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+  // brand cues shared with the cover/share card: the conic orb + the FIFA-color ribbon
+  function orb(ctx, cx, cy, r) {
+    var g = ctx.createConicGradient(210 * Math.PI / 180, cx, cy);
+    g.addColorStop(0, '#1E9B4B'); g.addColorStop(.25, '#FFC400'); g.addColorStop(.5, '#0A3478'); g.addColorStop(.75, '#ED2939'); g.addColorStop(1, '#1E9B4B');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  }
+  function fifaRibbon(ctx, y, h) {
+    var g = ctx.createLinearGradient(0, 0, W, 0);
+    g.addColorStop(0, '#1E9B4B'); g.addColorStop(.25, '#FFC400'); g.addColorStop(.5, '#0A3478'); g.addColorStop(.75, '#ED2939'); g.addColorStop(1, '#1E9B4B');
+    ctx.fillStyle = g; ctx.fillRect(0, y, W, h);
+  }
 
   // ---- generated jersey (stylized kit in team colors) ----
   function drawJersey(ctx, cx, cy, scale, c1, c2, num, name) {
@@ -402,42 +413,44 @@
 
   // ---- INFOGRAPHIC (ranked leaderboard of an oddball stat) ----
   function renderLeaderboard(ctx, p, flags) {
-    var accent = p.accent || '#FFC400';
-    ctx.fillStyle = '#0d1016'; ctx.fillRect(0, 0, W, W);
-    var rg = ctx.createRadialGradient(540, 90, 0, 540, 90, 860);
-    rg.addColorStop(0, hexA(accent, 0.20)); rg.addColorStop(1, 'rgba(13,16,22,0)');
-    ctx.fillStyle = rg; ctx.fillRect(0, 0, W, W);
-    // header
-    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#fff';
-    ctx.font = font('700', 62, KH); ctx.fillText(String(p.title || '').toUpperCase(), 64, 118);
-    if (p.subtitle) { ctx.font = font('700', 25, BR); ls(ctx, 1.5); ctx.fillStyle = accent; ctx.fillText(String(p.subtitle).toUpperCase(), 66, 158); ls(ctx, 0); }
+    // Brand system (matches the site + R32 + goal cards): cream field, ink type,
+    // Khand headline, FIFA-color ribbon + conic orb, and TEAM-COLOR bars.
+    var CREAM = '#F4F2EB', INKB = '#14171C', LINE = '#E6E2D8', MUTE = '#8A93A0', RED = '#C8102E';
+    ctx.fillStyle = CREAM; ctx.fillRect(0, 0, W, W);
+    fifaRibbon(ctx, 0, 10);
+    // brand row
+    orb(ctx, 86, 96, 24);
+    ctx.fillStyle = INKB; ctx.font = font('700', 30, KH); ls(ctx, 1); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('SPORTACLE', 124, 97); ls(ctx, 0);
+    // headline + subtitle
+    ctx.textBaseline = 'alphabetic'; ctx.fillStyle = INKB; ctx.font = font('700', 66, KH);
+    ctx.fillText(String(p.title || '').toUpperCase(), 64, 206);
+    if (p.subtitle) { ctx.font = font('700', 24, BR); ls(ctx, 1); ctx.fillStyle = RED; ctx.fillText(String(p.subtitle).toUpperCase(), 66, 244); ls(ctx, 0); }
     // rows
-    var rows = (p.rows || []).slice(0, 9), n = rows.length;
-    var maxRaw = 0; rows.forEach(function (r) { if (+r.raw > maxRaw) maxRaw = +r.raw; });
-    var top = 224, rowH = n ? Math.min(80, (W - top - 120) / n) : 80;
+    var rows = (p.rows || []).slice(0, 9), n = rows.length, maxRaw = 0;
+    rows.forEach(function (r) { if (+r.raw > maxRaw) maxRaw = +r.raw; });
+    var top = 298, rowH = n ? Math.min(76, (W - top - 130) / n) : 76;
     for (var i = 0; i < n; i++) {
-      var r = rows[i], cy = top + i * rowH + rowH / 2;
-      if (i) { ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(64, cy - rowH / 2); ctx.lineTo(1016, cy - rowH / 2); ctx.stroke(); }
-      ctx.font = font('700', 34, KH); ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(255,255,255,.42)';
-      ctx.fillText(String(i + 1), 86, cy);
-      var fw = 42, fh = 28; drawMiniFlag(ctx, flags[r.code], 106, cy - fh / 2, fw, fh);
-      ctx.font = font('700', 29, BR); ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
-      var name = String(r.name || ''), maxW = 296;
+      var r = rows[i], cy = top + i * rowH + rowH / 2, col = r.color || RED;
+      if (i) { ctx.strokeStyle = LINE; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(64, cy - rowH / 2); ctx.lineTo(1016, cy - rowH / 2); ctx.stroke(); }
+      ctx.font = font('700', 36, KH); ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillStyle = MUTE; ctx.fillText(String(i + 1), 92, cy);
+      var fw = 48, fh = 32; ctx.save(); ctx.shadowColor = 'rgba(20,23,28,.22)'; ctx.shadowBlur = 9; ctx.shadowOffsetY = 3; drawMiniFlag(ctx, flags[r.code], 116, cy - fh / 2, fw, fh); ctx.restore();
+      ctx.font = font('700', 31, BR); ctx.textAlign = 'left'; ctx.fillStyle = INKB;
+      var name = String(r.name || ''), maxW = 284;
       if (ctx.measureText(name).width > maxW) { while (name.length > 3 && ctx.measureText(name + '…').width > maxW) name = name.slice(0, -1); name += '…'; }
-      ctx.fillText(name, 164, cy + 1);
-      var bx = 476, bw = 452, bh = 22, fillw = maxRaw ? Math.max(8, (+r.raw / maxRaw) * bw) : 0;
-      ctx.fillStyle = 'rgba(255,255,255,.08)'; rrect(ctx, bx, cy - bh / 2, bw, bh, bh / 2); ctx.fill();
-      var bg = ctx.createLinearGradient(bx, 0, bx + bw, 0); bg.addColorStop(0, shade(accent, 0.8)); bg.addColorStop(1, accent);
+      ctx.fillText(name, 182, cy + 1);
+      var bx = 486, bw = 432, bh = 26, fillw = maxRaw ? Math.max(12, (+r.raw / maxRaw) * bw) : 0;
+      ctx.fillStyle = LINE; rrect(ctx, bx, cy - bh / 2, bw, bh, bh / 2); ctx.fill();
+      var bg = ctx.createLinearGradient(bx, 0, bx + bw, 0); bg.addColorStop(0, shade(col, 0.78)); bg.addColorStop(1, col);
       ctx.fillStyle = bg; rrect(ctx, bx, cy - bh / 2, fillw, bh, bh / 2); ctx.fill();
-      ctx.font = font('700', 40, KH); ctx.textAlign = 'right'; ctx.fillStyle = '#fff';
-      ctx.fillText(String(r.value), 1016, cy + 2);
+      ctx.font = font('700', 42, KH); ctx.textAlign = 'right'; ctx.fillStyle = INKB; ctx.fillText(String(r.value), 1016, cy + 2);
     }
-    // footer brand
-    ctx.font = font('700', 36, KH); ls(ctx, 3); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    var t1 = 'SPORT', t2 = 'ACLE', bw1 = ctx.measureText(t1).width, bw2 = ctx.measureText(t2).width, fx = 540 - (bw1 + bw2) / 2, fy = W - 52;
-    ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.fillText(t1, fx, fy); ctx.fillStyle = accent; ctx.fillText(t2, fx + bw1, fy);
-    ls(ctx, 0);
-    if (p.footnote) { ctx.font = font('700', 17, BR); ls(ctx, 2); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillText(String(p.footnote).toUpperCase(), fx + bw1 + bw2 + 16, fy + 1); ls(ctx, 0); }
+    // footer: wordmark + footnote above the bottom FIFA ribbon
+    fifaRibbon(ctx, W - 10, 10);
+    ctx.font = font('700', 36, KH); ls(ctx, 2); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    var t1 = 'SPORT', t2 = 'ACLE', bw1 = ctx.measureText(t1).width, bw2 = ctx.measureText(t2).width, fx = 540 - (bw1 + bw2) / 2, fy = W - 54;
+    ctx.fillStyle = INKB; ctx.fillText(t1, fx, fy); ctx.fillStyle = RED; ctx.fillText(t2, fx + bw1, fy); ls(ctx, 0);
+    if (p.footnote) { ctx.font = font('700', 17, BR); ls(ctx, 2); ctx.fillStyle = MUTE; ctx.fillText(String(p.footnote).toUpperCase(), fx + bw1 + bw2 + 16, fy + 1); ls(ctx, 0); }
   }
 
   // ---- STANDINGS (group table, provisional during live games) ----

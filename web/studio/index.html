@@ -303,8 +303,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     return fetch("https://site.api.espn.com/apis/common/v3/sports/soccer/fifa.world/athletes/"+p.id).then(function(r){return r.json();}).then(function(ad){ p.age=((ad.athlete||ad)||{}).age||null; }).catch(function(){p.age=null;});
   })); }
   function teamCode(espn){ var c=canon(espn); for(var i=0;i<TEAMS.length;i++){ if(canon(TEAMS[i].name)===c) return TEAMS[i].code; } return ""; }
+  function teamColor(espn){ var c=canon(espn); for(var i=0;i<TEAMS.length;i++){ if(canon(TEAMS[i].name)===c) return TEAMS[i].color; } return "#C8102E"; }
   function fmt1(n){ return (Math.round(n*10)/10).toFixed(1); }
-  function row(p,val,raw){ return {name:p.name, code:teamCode(p.team), value:String(val), raw:raw}; }
+  function row(p,val,raw){ return {name:p.name, code:teamCode(p.team), color:teamColor(p.team), value:String(val), raw:raw}; }
   var METRICS={
     lifetime:{title:"A Lifetime Per Goal",subtitle:"Age divided by goals — one strike, a whole career",accent:"#FFC400",needsAge:true,
       build:function(A){ return A.filter(function(p){return p.goals>0&&p.age;}).map(function(p){return {p:p,r:p.age/p.goals};}).sort(function(a,b){return b.r-a.r;}).slice(0,9).map(function(x){return row(x.p,fmt1(x.r),x.r);}); }},
@@ -327,7 +328,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     return aggregate().then(function(A){
       return (M.needsAge?loadAges(A.filter(function(p){return p.goals>0;})):Promise.resolve()).then(function(){
         var rows=M.build(A);
-        lastInfoParams={title:M.title,subtitle:M.subtitle,footnote:"Sportacle Index · WC 2026",accent:M.accent,rows:rows};
+        lastInfoParams={title:M.title,subtitle:M.subtitle,footnote:"World Cup 2026",accent:M.accent,rows:rows};
         return window.SportacleRender.renderTo(cv,"infographic",lastInfoParams,2).then(function(){ if(!busy) statusEl.textContent=rows.length+" players · "+M.title; });
       });
     }).catch(function(e){ statusEl.textContent="Couldn't load data: "+e; });
