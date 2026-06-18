@@ -76,5 +76,30 @@ body{font-family:var(--ui);-webkit-font-smoothing:antialiased;text-rendering:geo
   if(note){var n=document.getElementById("note");n.textContent=note.toUpperCase();n.style.display="";}
 })();
 </script>
+<!-- Export hook: the studio builder embeds this template in an iframe and asks it
+     to rasterize ITSELF (same document = reliable fonts + clip-path), returning the
+     PNG via postMessage. Harmless to make.py / normal views (idle until messaged). -->
+<script src="html-to-image.js"></script>
+<script>
+(function(){
+  function exportCard(opts){
+    var card=document.querySelector(".card");
+    return document.fonts.ready.then(function(){
+      return window.htmlToImage.toPng(card,{width:1080,height:1080,pixelRatio:(opts&&opts.pixelRatio)||2,cacheBust:true});
+    });
+  }
+  window.addEventListener("message",function(e){
+    if(!e.data||e.data.type!=="export")return;
+    exportCard(e.data).then(function(u){e.source.postMessage({type:"exported",dataUrl:u},"*");})
+      .catch(function(err){e.source.postMessage({type:"export-error",error:String(err)},"*");});
+  });
+  if(new URLSearchParams(location.search).get("export")==="1"){
+    var ta=document.createElement("textarea");ta.id="exp";ta.style.cssText="position:fixed;left:-99999px;top:0;width:10px;height:10px";
+    document.body.appendChild(ta);
+    exportCard({pixelRatio:1}).then(function(u){ta.textContent=u;ta.setAttribute("data-done","1");})
+      .catch(function(err){ta.textContent="ERR "+err;ta.setAttribute("data-done","1");});
+  }
+})();
+</script>
 </body>
 </html>
