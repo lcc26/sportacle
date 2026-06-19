@@ -55,8 +55,9 @@ def canon(s):
 
 VBANK = {}   # verdict copy bank from static/make/verdicts.json
 PWORDS = {}  # definition word bank from static/make/panel_words.json
+KITS = {}    # jersey kits from static/make/kits.json
 def load_banks():
-    global VBANK, PWORDS
+    global VBANK, PWORDS, KITS
     try:
         with open(os.path.join(STATIC_DIR, "make", "verdicts.json")) as f:
             VBANK = json.load(f).get("verdicts") or {}
@@ -67,6 +68,22 @@ def load_banks():
             PWORDS = json.load(f).get("words") or {}
     except Exception:
         PWORDS = {}
+    try:
+        with open(os.path.join(STATIC_DIR, "make", "kits.json")) as f:
+            KITS = json.load(f) or {}
+    except Exception:
+        KITS = {}
+
+def home_kit(espn):
+    c = canon(espn)
+    for k in KITS:
+        if canon(k) == c and KITS[k]:
+            return [KITS[k][0].get("s"), KITS[k][0].get("t")]
+    return None
+
+def pos_name(abbr):
+    a = str(abbr or "").upper()
+    return {"F": "Forward", "M": "Midfielder", "D": "Defender", "G": "Goalkeeper", "GK": "Goalkeeper"}.get(a, a or "")
 
 TEAMS = []
 def load_teams():
@@ -190,6 +207,7 @@ scorelines = set()  # sorted "min-max" strings seen this tournament (for Scoriga
 proj_last = {"iso": "", "map": {}}  # last seen predictions snapshot (for the shift tracker)
 shifts = []      # newest first: how projections moved after each result
 predictions_raw = {}  # last fetched predictions.json (served same-origin for the studio)
+stats_done = set()    # eventIds we've already emitted player-stat cards for
 seeding = True
 
 def save_state():
@@ -201,18 +219,19 @@ def save_state():
         with open(tmp, "w") as f:
             json.dump({"snap": snap, "seen": list(seen), "cards": cards,
                        "ht": ht_scores, "scorelines": list(scorelines),
-                       "proj_last": proj_last, "shifts": shifts}, f)
+                       "proj_last": proj_last, "shifts": shifts, "stats_done": list(stats_done)}, f)
         os.replace(tmp, STATE_PATH)  # atomic
     except Exception as e:
         print("[state] save failed (%s): %s" % (STATE_PATH, e), flush=True)
 def load_state():
-    global snap, seen, cards, ht_scores, scorelines, proj_last, shifts, seeding
+    global snap, seen, cards, ht_scores, scorelines, proj_last, shifts, stats_done, seeding
     try:
         with open(STATE_PATH) as f:
             d = json.load(f)
         snap = d.get("snap", {}); seen = set(d.get("seen", [])); cards = d.get("cards", [])
         ht_scores = d.get("ht", {}); scorelines = set(d.get("scorelines", []))
         proj_last = d.get("proj_last", {"iso": "", "map": {}}); shifts = d.get("shifts", [])
+        stats_done = set(d.get("stats_done", []))
         seeding = False  # we already have prior state; don't retro-emit
         print("[state] loaded %d cards / %d seen from %s" % (len(cards), len(seen), STATE_PATH), flush=True)
     except FileNotFoundError:
@@ -402,6 +421,55 @@ def emit_verdicts(ev):
         if cards_total >= 8:
             fire_verdict(ev, "fight", [], [cards_total])
 
+def emit_player_stats(ev):
+    # one Stats card per standout scorer (2+ goals) from the match summary
+    try:
+        sm = get_json(ESPN + "summary?event=" + ev["id"])
+    except Exception:
+        return
+    hs, as_ = ev["home"]["score"] or 0, ev["away"]["score"] or 0
+    context = "%s %d-%d %s" % (team_name(ev["home"]["name"]), hs, as_, team_name(ev["away"]["name"]))
+    out = []
+    for ros in (sm.get("rosters") or []):
+        tname = (ros.get("team") or {}).get("displayName", "")
+        color = team_color(tname); kit = home_kit(tname)
+        for q in (ros.get("roster") or []):
+            st = q.get("stats") or []
+            goals = _stat_int(st, "totalGoals")
+            if goals < 2:
+                continue
+            a = q.get("athlete") or {}
+            params = {"team": team_name(tname), "color": color, "context": context,
+                      "player": a.get("displayName", ""), "jersey": str(q.get("jersey", "") or ""),
+                      "position": pos_name((q.get("position") or {}).get("abbreviation", "")),
+                      "motm": goals >= 3,
+                      "stats": [{"label": "Goals", "value": str(goals)},
+                                {"label": "Assists", "value": str(_stat_int(st, "goalAssists"))},
+                                {"label": "Shots", "value": str(_stat_int(st, "totalShots"))},
+                                {"label": "On Target", "value": str(_stat_int(st, "shotsOnTarget"))}]}
+            if kit and kit[0]:
+                params["kit1"] = kit[0]; params["kit2"] = kit[1]
+            out.append((goals, a.get("id", ""), a.get("displayName", ""), params))
+    out.sort(key=lambda x: -x[0])
+    for goals, aid, nm, params in out[:4]:
+        add_card("%s:pstats:%s" % (ev["id"], aid), "Player", "stats", params,
+                 nm + " · " + str(goals) + "G", ev["home"]["name"] + " v " + ev["away"]["name"])
+
+def scan_player_stats(evs):
+    # backfill + ongoing: standout-scorer Stats cards for recently finished games
+    now = time.time() * 1000
+    budget = 4
+    for ev in evs:
+        if ev["id"] in stats_done or not (ev["state"] == "post" or ev["completed"]):
+            continue
+        if (now - ev["epoch"]) > 14 * 3600 * 1000:   # too old; mark done so we never recheck
+            stats_done.add(ev["id"]); continue
+        if budget <= 0:
+            break
+        budget -= 1
+        emit_player_stats(ev)
+        stats_done.add(ev["id"])
+
 def detect(evs, seed):
     ft = False
     for ev in evs:
@@ -521,6 +589,7 @@ def poll_loop():
             if ft:
                 trigger_deploy()
             poll_projections()
+            scan_player_stats(evs)
             live_n = sum(1 for e in evs if e["state"] == "in")
             soon = any(e["state"] == "pre" and (e["epoch"] - now) < 15 * 60000 for e in evs)
             delay = 30 if (live_n or soon) else 300
