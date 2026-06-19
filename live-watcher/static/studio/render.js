@@ -188,6 +188,53 @@
     ctx.fillStyle = INK; ctx.font = font('700', 86, KH); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('VS', cx, cy + 4);
   }
+  // ---- MATCHDAY (pre-match gameday hype hero) ----
+  function drawKickoffMedallion(ctx, cx, cy, p) {
+    var r = 104;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 42; ctx.shadowOffsetY = 16;
+    ctx.fillStyle = '#F4F2EB'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    ctx.lineWidth = 5; ctx.strokeStyle = INK; ctx.beginPath(); ctx.arc(cx, cy, r - 3, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = font('800', 19, BR); ls(ctx, 5); ctx.fillText('KICKOFF', cx, cy - 48); ls(ctx, 0);
+    ctx.font = font('700', 74, KH); ctx.fillText(String(p.time || ''), cx, cy + 4);
+    ctx.font = font('800', 21, BR); ls(ctx, 2); ctx.fillStyle = hexA(INK, .68); ctx.fillText(String(p.meridiem || '').toUpperCase(), cx, cy + 54); ls(ctx, 0);
+  }
+  function drawFormDots(ctx, results, cx, cy) {
+    results = (results || []).slice(0, 3); var n = results.length; if (!n) return;
+    var d = 44, gap = 12, totalW = n * d + (n - 1) * gap, x0 = cx - totalW / 2 + d / 2;
+    var FC = { W: '#1E9B4B', D: '#FFC400', L: '#ED2939' };
+    ctx.font = font('800', 20, BR); ls(ctx, 4); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = 'rgba(255,255,255,.8)';
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 8; ctx.fillText('FORM', cx, cy - 42); ctx.restore(); ls(ctx, 0);
+    ctx.textBaseline = 'middle';
+    for (var i = 0; i < n; i++) {
+      var rch = String(results[i]).toUpperCase(), x = x0 + i * (d + gap), col = FC[rch] || '#8A93A0';
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, cy, d / 2, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      ctx.fillStyle = contrastInk(col); ctx.font = font('800', 24, BR); ctx.fillText(rch, x, cy + 1);
+    }
+  }
+  function renderMatchday(ctx, p, F) {
+    drawVsBg(ctx, p, F);
+    var scg = ctx.createLinearGradient(0, W - 470, 0, W); scg.addColorStop(0, 'rgba(8,10,14,0)'); scg.addColorStop(1, 'rgba(8,10,14,.9)');
+    ctx.fillStyle = scg; ctx.fillRect(0, W - 470, W, 470);
+    var tc = p.tagColor || '#FFC400';
+    pill(ctx, 540, 78, String(p.stakesTag || 'MATCHDAY').toUpperCase(), { font: font('800', 28, BR), lsp: 6, padX: 28, h: 54, bg: tc, color: contrastInk(tc), shadow: { c: 'rgba(0,0,0,.3)', b: 24, oy: 10 } });
+    drawKickoffMedallion(ctx, 540, 452, p);
+    if (p.day) { var dc = p.dayColor || '#C8102E'; pill(ctx, 540, 590, String(p.day).toUpperCase(), { font: font('800', 23, BR), lsp: 3, padX: 22, h: 48, bg: dc, color: contrastInk(dc), shadow: { c: 'rgba(0,0,0,.3)', b: 18, oy: 6 } }); }
+    if (p.formA) drawFormDots(ctx, p.formA, 250, 656);
+    if (p.formB) drawFormDots(ctx, p.formB, 830, 656);
+    if (p.edge) pill(ctx, 540, 724, String(p.edge).toUpperCase(), { font: font('800', 26, BR), lsp: 2, padX: 24, h: 50, bg: '#F4F2EB', color: (p.edgeSide === 'b' ? (p.bcolor || '#C8102E') : (p.acolor || '#C8102E')), shadow: { c: 'rgba(0,0,0,.3)', b: 18, oy: 6 } });
+    if (p.stakes) {
+      var fwm = fitWrap(ctx, String(p.stakes).toUpperCase(), '700', 78, KH, W - 150, 2, 46);
+      var lh = fwm.size * 0.86, n = fwm.lines.length, lastBase = (p.detail ? 842 : 866), topBase = lastBase - (n - 1) * lh;
+      drawQuoteGlyph(ctx, 64, topBase - fwm.size * 0.95, 128, '#F4F2EB', .13);
+      ctx.font = font('700', fwm.size, KH); ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
+      for (var i = 0; i < n; i++) ctx.fillText(fwm.lines[i], 78, topBase + i * lh);
+      ctx.restore();
+      if (p.detail) { var ds = fitFont(ctx, String(p.detail), '600', 28, BR, W - 160, 0); ctx.font = font('600', ds, BR); ctx.fillStyle = 'rgba(255,255,255,.78)'; ctx.textAlign = 'left'; ctx.fillText(String(p.detail), 80, lastBase + 42); }
+    }
+    drawBrand(ctx, p.acolor);
+  }
 
   // ---- VERDICT (roast/meme cards: one flag-forward layout, many stamps) ----
   function fitFont(ctx, text, weight, size, fam, maxW, lsp) {
@@ -971,7 +1018,7 @@
       }
       return Promise.all([loadFlag(p.ac), loadFlag(p.bc)]).then(function (f) {
         var F = { a: f[0], b: f[1] };
-        if (type === 'whowins') renderWhoWins(ctx, p, F); else if (type === 'verdict') renderVerdict(ctx, p, F); else if (type === 'panel') renderPanel(ctx, p, F); else if (type === 'ticker') renderTicker(ctx, p, F); else renderFinal(ctx, p, F);
+        if (type === 'whowins') renderWhoWins(ctx, p, F); else if (type === 'verdict') renderVerdict(ctx, p, F); else if (type === 'panel') renderPanel(ctx, p, F); else if (type === 'ticker') renderTicker(ctx, p, F); else if (type === 'matchday') renderMatchday(ctx, p, F); else renderFinal(ctx, p, F);
       });
     });
   }

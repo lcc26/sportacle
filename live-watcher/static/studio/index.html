@@ -96,6 +96,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <button data-type="half">Half</button>
         <button data-type="final" class="on">Final</button>
         <button data-type="whowins">Who Wins</button>
+        <button data-type="matchday">Matchday</button>
         <button data-type="stats">Stats</button>
         <button data-type="infographic">Fun Stats</button>
         <button data-type="standings">Standings</button>
@@ -121,6 +122,29 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         </div>
         <div class="field"><label>Headline override (optional)</label><input id="rhead" type="text" maxlength="28" placeholder="blank = Full Time / Who Will Win?"></div>
         <div class="field"><label>Note / prompt (optional)</label><input id="note" type="text" placeholder="e.g. Group L  ·  or a Who-Wins prompt"></div>
+      </div>
+
+      <!-- matchday (gameday hype) fields -->
+      <div id="matchdayFields" class="hide">
+        <div class="field"><label>Team A</label><select id="mdA"></select></div>
+        <div class="field"><label>Team B</label><select id="mdB"></select></div>
+        <button type="button" class="linkbtn" id="mdLoad">Load fixture (kickoff, form, projection)</button>
+        <div class="row">
+          <div class="field"><label>Kickoff</label><input id="mdtime" type="text" maxlength="6" placeholder="3:00"></div>
+          <div class="field"><label>Meridiem</label><input id="mdmeridiem" type="text" maxlength="8" placeholder="PM ET"></div>
+        </div>
+        <div class="field"><label>Day badge</label><input id="mdday" type="text" maxlength="10" placeholder="TODAY"></div>
+        <div class="field"><label>Stakes tag</label><input id="mdtag" type="text" maxlength="34" placeholder="GROUP D · MATCHDAY 2"></div>
+        <div class="row">
+          <div class="field"><label>Form A (W D L)</label><input id="mdformA" type="text" maxlength="9" placeholder="W W D"></div>
+          <div class="field"><label>Form B</label><input id="mdformB" type="text" maxlength="9" placeholder="L W W"></div>
+        </div>
+        <div class="field"><label>Stakes headline</label><input id="mdstakes" type="text" maxlength="60" placeholder="The hype line"></div>
+        <div class="field"><label>Detail (optional)</label><input id="mddetail" type="text" maxlength="100" placeholder="The qualification detail"></div>
+        <div class="row">
+          <div class="field"><label>Edge chip (optional)</label><input id="mdedge" type="text" maxlength="26" placeholder="e.g. 76% TO ADVANCE"></div>
+          <div class="field"><label>Edge side</label><select id="mdedgeside"><option value="a">Team A</option><option value="b">Team B</option></select></div>
+        </div>
       </div>
 
       <!-- goal fields -->
@@ -292,8 +316,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     }).then(function(){
     return fetch("/make/teams.json").then(function(r){return r.json();}).then(function(d){
       TEAMS=d;
-      ["home","away","gteam","gvs","steam","rteamA","rteamB","dteamA","dteamB","qteam","tteam","mteamA","mteamB"].forEach(function(id){ fillSelect(id, id==="gvs"); });
-      setSel("mteamA","Brazil"); setSel("mteamB","Argentina"); document.getElementById("mtop").value="When the group stage draw comes out"; document.getElementById("mbottom").value="And your team gets the easy one"; syncMacroFields();
+      ["home","away","gteam","gvs","steam","rteamA","rteamB","dteamA","dteamB","qteam","tteam","mteamA","mteamB","mdA","mdB"].forEach(function(id){ fillSelect(id, id==="gvs"); });
+      setSel("mteamA","Brazil"); setSel("mteamB","Argentina");
+      setSel("mdA","United States"); setSel("mdB","Australia"); document.getElementById("mdtag").value="MATCHDAY"; document.getElementById("mdstakes").value="Win and the group is theirs"; document.getElementById("mtop").value="When the group stage draw comes out"; document.getElementById("mbottom").value="And your team gets the easy one"; syncMacroFields();
       setSel("tteam","Brazil"); document.getElementById("tlabel").value="PROJECTION ALERT"; document.getElementById("thead").value="Pick a team to load its live projection"; document.getElementById("tticker").value="The headline and odds fill in from the team's current projection";
       setSel("qteam","Germany"); document.getElementById("qquote").value="We treated it like a friendly."; document.getElementById("qattr").value="Germany"; document.getElementById("qcontext").value="Sportacle still has them 68% to win the group.";
       setSel("home","England"); setSel("away","Croatia");
@@ -414,6 +439,41 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     document.getElementById("qphoto").value=q.athlete.id?("https://a.espncdn.com/i/headshots/soccer/players/full/"+q.athlete.id+".png"):"";
     update();
   }
+  var mdLoaded=false;
+  function mdParseForm(s){ return (s||"").toUpperCase().split(/[^WDL]+/).filter(Boolean).slice(0,3); }
+  function teamForm(tname){
+    return fetch(ESPN+"scoreboard?dates="+ymdU(Date.now()-22*864e5)+"-"+ymdU(Date.now())).then(function(r){return r.json();}).then(function(d){
+      var g=[];
+      (d.events||[]).forEach(function(e){ var st=((((e.competitions||[])[0]||{}).status||{}).type)||{}; if(!st.completed) return;
+        var cs=(e.competitions[0].competitors)||[], me=cs.filter(function(c){return canon(c.team.displayName)===canon(tname);})[0]; if(!me) return;
+        var them=cs.filter(function(c){return c!==me;})[0]; if(!them) return;
+        var ms=parseInt(me.score||"0",10), ts=parseInt(them.score||"0",10);
+        g.push({t:new Date(e.date).getTime(), r: ms>ts?"W":(ms<ts?"L":"D")});
+      });
+      g.sort(function(a,b){return a.t-b.t;}); return g.slice(-3).map(function(x){return x.r;});
+    }).catch(function(){ return []; });
+  }
+  function loadMatchdayFixture(){
+    var A=opt("mdA").value, B=opt("mdB").value; if(!A||!B) return;
+    statusEl.textContent="Loading the fixture…";
+    fetch(ESPN+"scoreboard?dates="+ymdU(Date.now()-12*36e5)+"-"+ymdU(Date.now()+96*36e5)).then(function(r){return r.json();}).then(function(d){
+      var ev=(d.events||[]).filter(function(e){ var nm=((e.competitions[0].competitors)||[]).map(function(c){return canon(c.team.displayName);}); return nm.indexOf(canon(A))>=0 && nm.indexOf(canon(B))>=0; })[0];
+      if(ev){ var dt=new Date(ev.date), ET={timeZone:"America/New_York"};
+        var tp=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit",hour12:true}).formatToParts(dt);
+        var hh="",mm="",ap=""; tp.forEach(function(p){ if(p.type==="hour")hh=p.value; if(p.type==="minute")mm=p.value; if(p.type==="dayPeriod")ap=p.value; });
+        document.getElementById("mdtime").value=hh+":"+mm; document.getElementById("mdmeridiem").value=ap.toUpperCase()+" ET";
+        var fday=new Intl.DateTimeFormat("en-CA",ET).format(dt), nday=new Intl.DateTimeFormat("en-CA",ET).format(new Date());
+        document.getElementById("mdday").value = fday===nday ? "TODAY" : new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",weekday:"short"}).format(dt).toUpperCase();
+      }
+      Promise.all([teamForm(A), teamForm(B)]).then(function(f){
+        document.getElementById("mdformA").value=f[0].join(" "); document.getElementById("mdformB").value=f[1].join(" ");
+        loadPreds().then(function(pd){ var m=(pd.matchups||[]).filter(function(x){return canon((x.team||{}).name)===canon(A);})[0];
+          if(m && (m.team||{}).note && !val("mdedge")) document.getElementById("mdedge").value=String(m.team.note).toUpperCase();
+          update(); if(!busy) statusEl.textContent="Fixture loaded.";
+        }).catch(function(){ update(); statusEl.textContent="Fixture loaded."; });
+      });
+    }).catch(function(e){ statusEl.textContent="Fixture load failed: "+e; });
+  }
   var WHENYOU=[
     "When you get invited to a watch party for a sport you last saw in 2022",
     "When you picked your bracket winner by which flag looked coolest",
@@ -431,6 +491,17 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     document.getElementById("mteamBField").classList.toggle("hide", bg!=="vs");
   }
   function buildParams(){
+    if(type==="matchday"){
+      var ma=opt("mdA"), mb=opt("mdB");
+      var mp={ac:ma.getAttribute("data-code")||"", an:ma.value||"", acolor:ma.getAttribute("data-color")||"#0A3478",
+              bc:mb.getAttribute("data-code")||"", bn:mb.value||"", bcolor:mb.getAttribute("data-color")||"#C8102E",
+              time:val("mdtime"), meridiem:val("mdmeridiem"), day:val("mdday"), dayColor:"#C8102E",
+              stakesTag:val("mdtag")||"MATCHDAY", tagColor:"#FFC400",
+              formA:mdParseForm(val("mdformA")), formB:mdParseForm(val("mdformB")),
+              stakes:val("mdstakes"), detail:val("mddetail")};
+      if(val("mdedge")){ mp.edge=val("mdedge"); mp.edgeSide=opt("mdedgeside").value; }
+      return mp;
+    }
     if(type==="macro"){
       var mbg=opt("mbg").value, ma=opt("mteamA"), mb=opt("mteamB");
       var mp={top:val("mtop"), bottom:val("mbottom"), bg:mbg, credit:val("mcredit"),
@@ -520,7 +591,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(val("rhead")) pp.label=val("rhead");
     return pp;
   }
-  function rtype(){ return type==="goal"?"goal":type==="whowins"?"whowins":type==="stats"?"stats":type==="roast"?"verdict":type==="definition"?"panel":type==="quote"?"quotecard":type==="ticker"?"ticker":type==="macro"?"macro":"final"; }
+  function rtype(){ return type==="goal"?"goal":type==="matchday"?"matchday":type==="whowins"?"whowins":type==="stats"?"stats":type==="roast"?"verdict":type==="definition"?"panel":type==="quote"?"quotecard":type==="ticker"?"ticker":type==="macro"?"macro":"final"; }
   var statusEl=document.getElementById("status");
 
   // ---- Stats: pull a team's last completed match + per-player stats from ESPN ----
@@ -921,6 +992,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         b.classList.add("on"); type=b.getAttribute("data-type");
         document.getElementById("resultFields").classList.toggle("hide", type!=="half"&&type!=="final"&&type!=="whowins");
         document.getElementById("goalFields").classList.toggle("hide", type!=="goal");
+        document.getElementById("matchdayFields").classList.toggle("hide", type!=="matchday");
         document.getElementById("statsFields").classList.toggle("hide", type!=="stats");
         document.getElementById("infographicFields").classList.toggle("hide", type!=="infographic");
         document.getElementById("standingsCardFields").classList.toggle("hide", type!=="standings");
@@ -942,6 +1014,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         else if(type==="stats" && !statsData){ loadStatsTeam(); }
         else if(type==="quote" && !quoteSquad){ loadQuoteSquad(); update(); }
         else if(type==="ticker"){ fillTickerCopy(); }
+        else if(type==="matchday" && !mdLoaded){ mdLoaded=true; loadMatchdayFixture(); }
         else if(type!=="live"){ update(); }
       });
     });
@@ -954,6 +1027,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     document.getElementById("roastReset").addEventListener("click", function(){ fillVerdictCopy(); update(); });
     document.getElementById("dpreset").addEventListener("change", function(){ fillDefCopy(); update(); });
     document.getElementById("oteam").addEventListener("change", drawOddsboard);
+    document.getElementById("mdLoad").addEventListener("click", loadMatchdayFixture);
+    document.getElementById("mdA").addEventListener("change", loadMatchdayFixture);
+    document.getElementById("mdB").addEventListener("change", loadMatchdayFixture);
     document.getElementById("tteam").addEventListener("change", fillTickerCopy);
     document.getElementById("mbg").addEventListener("change", function(){ syncMacroFields(); update(); });
     document.getElementById("mWhenYou").addEventListener("click", function(){ document.getElementById("mtop").value=WHENYOU[Math.floor(Math.random()*WHENYOU.length)]; document.getElementById("mbottom").value=""; update(); });
@@ -990,6 +1066,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(type==="roast"){ return "sportacle-roast-"+(opt("verdict").value||"x")+"-"+ts+".png"; }
     if(type==="definition"){ return "sportacle-def-"+slug(val("dword")||"word")+"-"+ts+".png"; }
     if(type==="macro"){ return "sportacle-macro-"+ts+".png"; }
+    if(type==="matchday"){ return "sportacle-matchday-"+(opt("mdA").getAttribute("data-code")||"x")+"-"+(opt("mdB").getAttribute("data-code")||"x")+"-"+ts+".png"; }
     if(type==="quote"){ return "sportacle-quote-"+(opt("qteam").getAttribute("data-code")||"x")+"-"+ts+".png"; }
     if(type==="cooked"){ return "sportacle-cooked-"+ts+".png"; }
     if(type==="tierboard"){ return "sportacle-tierlist-"+ts+".png"; }
