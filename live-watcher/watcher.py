@@ -37,6 +37,7 @@ GITHUB_WORKFLOW = os.environ.get("GITHUB_WORKFLOW", "update-predictions.yml")
 UA = {"User-Agent": "SportacleLiveWatcher/1.0 (+https://gosportacle.com)"}
 MAX_CARDS = 60
 KEEP_HOURS = 18
+STATS_VERSION = 2   # bump to force a one-time re-scan of recent games when the player-stat logic changes
 
 # ---- team aliasing: ported verbatim from the studio (normName + CANON) -------
 CANON = {
@@ -219,7 +220,8 @@ def save_state():
         with open(tmp, "w") as f:
             json.dump({"snap": snap, "seen": list(seen), "cards": cards,
                        "ht": ht_scores, "scorelines": list(scorelines),
-                       "proj_last": proj_last, "shifts": shifts, "stats_done": list(stats_done)}, f)
+                       "proj_last": proj_last, "shifts": shifts, "stats_done": list(stats_done),
+                       "stats_version": STATS_VERSION}, f)
         os.replace(tmp, STATE_PATH)  # atomic
     except Exception as e:
         print("[state] save failed (%s): %s" % (STATE_PATH, e), flush=True)
@@ -232,6 +234,8 @@ def load_state():
         ht_scores = d.get("ht", {}); scorelines = set(d.get("scorelines", []))
         proj_last = d.get("proj_last", {"iso": "", "map": {}}); shifts = d.get("shifts", [])
         stats_done = set(d.get("stats_done", []))
+        if d.get("stats_version") != STATS_VERSION:
+            stats_done = set()   # logic changed -> re-scan recent games once (add_card dedups per player)
         seeding = False  # we already have prior state; don't retro-emit
         print("[state] loaded %d cards / %d seen from %s" % (len(cards), len(seen), STATE_PATH), flush=True)
     except FileNotFoundError:
@@ -422,38 +426,51 @@ def emit_verdicts(ev):
             fire_verdict(ev, "fight", [], [cards_total])
 
 def emit_player_stats(ev):
-    # one Stats card per standout scorer (2+ goals) from the match summary
+    # Always pick a player of the match for EVERY game (best by a weighted score),
+    # plus any extra 2+ goal scorers. The single best gets the MOTM ribbon.
     try:
         sm = get_json(ESPN + "summary?event=" + ev["id"])
     except Exception:
         return
     hs, as_ = ev["home"]["score"] or 0, ev["away"]["score"] or 0
     context = "%s %d-%d %s" % (team_name(ev["home"]["name"]), hs, as_, team_name(ev["away"]["name"]))
-    out = []
+    plist = []
     for ros in (sm.get("rosters") or []):
         tname = (ros.get("team") or {}).get("displayName", "")
         color = team_color(tname); kit = home_kit(tname)
         for q in (ros.get("roster") or []):
             st = q.get("stats") or []
-            goals = _stat_int(st, "totalGoals")
-            if goals < 2:
+            goals = _stat_int(st, "totalGoals"); assists = _stat_int(st, "goalAssists")
+            shots = _stat_int(st, "totalShots"); sot = _stat_int(st, "shotsOnTarget"); saves = _stat_int(st, "saves")
+            pos = (q.get("position") or {}).get("abbreviation", ""); gk = pos in ("G", "GK")
+            score = goals * 100 + assists * 45 + sot * 10 + (saves * 6 if gk else 0) + shots * 2
+            if score <= 0:   # bench / no productive involvement
                 continue
             a = q.get("athlete") or {}
+            stats = ([{"label": "Saves", "value": str(saves)},
+                      {"label": "Conceded", "value": str(_stat_int(st, "goalsConceded"))},
+                      {"label": "Shots Faced", "value": str(_stat_int(st, "shotsFaced"))}] if gk else
+                     [{"label": "Goals", "value": str(goals)}, {"label": "Assists", "value": str(assists)},
+                      {"label": "Shots", "value": str(shots)}, {"label": "On Target", "value": str(sot)}])
             params = {"team": team_name(tname), "color": color, "context": context,
                       "player": a.get("displayName", ""), "jersey": str(q.get("jersey", "") or ""),
-                      "position": pos_name((q.get("position") or {}).get("abbreviation", "")),
-                      "motm": goals >= 3,
-                      "stats": [{"label": "Goals", "value": str(goals)},
-                                {"label": "Assists", "value": str(_stat_int(st, "goalAssists"))},
-                                {"label": "Shots", "value": str(_stat_int(st, "totalShots"))},
-                                {"label": "On Target", "value": str(_stat_int(st, "shotsOnTarget"))}]}
+                      "position": pos_name(pos), "stats": stats}
             if kit and kit[0]:
                 params["kit1"] = kit[0]; params["kit2"] = kit[1]
-            out.append((goals, a.get("id", ""), a.get("displayName", ""), params))
-    out.sort(key=lambda x: -x[0])
-    for goals, aid, nm, params in out[:4]:
-        add_card("%s:pstats:%s" % (ev["id"], aid), "Player", "stats", params,
-                 nm + " · " + str(goals) + "G", ev["home"]["name"] + " v " + ev["away"]["name"])
+            tag = (str(goals) + "G") if goals > 0 else ((str(saves) + " saves") if gk else "MOTM")
+            plist.append({"score": score, "goals": goals, "id": a.get("id", ""), "name": a.get("displayName", ""), "tag": tag, "params": params})
+    if not plist:
+        return
+    plist.sort(key=lambda p: -p["score"])
+    best = plist[0]
+    picks, ids = [best], {best["id"]}
+    for p in plist:                       # add any other 2+ goal scorers
+        if p["goals"] >= 2 and p["id"] not in ids:
+            picks.append(p); ids.add(p["id"])
+    for p in picks[:4]:
+        p["params"]["motm"] = (p["id"] == best["id"])
+        add_card("%s:pstats:%s" % (ev["id"], p["id"]), "Player", "stats", p["params"],
+                 p["name"] + " · " + p["tag"], ev["home"]["name"] + " v " + ev["away"]["name"])
 
 def scan_player_stats(evs):
     # backfill + ongoing: standout-scorer Stats cards for recently finished games
