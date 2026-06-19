@@ -102,6 +102,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <button data-type="roast">Roast</button>
         <button data-type="quote">Quote</button>
         <button data-type="definition">Definition</button>
+        <button data-type="macro">Macro</button>
         <button data-type="cooked">Cooked</button>
         <button data-type="tierboard">Tier List</button>
         <button data-type="oddsboard">Odds</button>
@@ -183,10 +184,24 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       <div id="quoteFields" class="hide">
         <div class="field"><label>Team</label><select id="qteam"></select></div>
         <div class="field"><label>Player (optional, adds a photo when one exists)</label><select id="qplayer"><option value="">Flag only</option></select></div>
+        <div class="field"><label>Kicker (optional, e.g. ON THIS DATE IN 2018)</label><input id="qkicker" type="text" maxlength="40" placeholder="blank to hide"></div>
         <div class="field"><label>Quote</label><input id="qquote" type="text" maxlength="90" placeholder="The line"></div>
         <div class="field"><label>Attribution</label><input id="qattr" type="text" maxlength="32" placeholder="Team, player, or the bench"></div>
         <div class="field"><label>Context (optional)</label><input id="qcontext" type="text" maxlength="92" placeholder="The savage one-liner under it"></div>
         <div class="field"><label>Photo URL (optional)</label><input id="qphoto" type="text" placeholder="auto from player, or paste an image url"></div>
+      </div>
+
+      <!-- image macro (impact-caption meme) fields -->
+      <div id="macroFields" class="hide">
+        <div class="field"><label>Top text</label><input id="mtop" type="text" maxlength="110" placeholder="Top caption (optional)"></div>
+        <div class="field"><label>Bottom text</label><input id="mbottom" type="text" maxlength="110" placeholder="Bottom caption (optional)"></div>
+        <button type="button" class="linkbtn" id="mWhenYou">Shuffle a "when you..." setup</button>
+        <div class="field"><label>Background</label><select id="mbg"><option value="flag">Team flag</option><option value="photo">Pasted image</option><option value="vs">VS match</option><option value="gradient">Plain (no team)</option></select></div>
+        <div class="field" id="mphotoField"><label>Image URL (or upload below)</label><input id="mphoto" type="text" placeholder="Paste an image URL"><input id="mfile" type="file" accept="image/*" style="margin-top:8px"></div>
+        <div class="field" id="mteamAField"><label>Team</label><select id="mteamA"></select></div>
+        <div class="field hide" id="mteamBField"><label>Team B (VS)</label><select id="mteamB"></select></div>
+        <label class="chk"><input type="checkbox" id="mbars"> Solid black caption bars</label>
+        <div class="field"><label>Credit / H-T (optional)</label><input id="mcredit" type="text" maxlength="28" placeholder="blank to hide"></div>
       </div>
 
       <!-- definition / knowledge-panel spoof fields -->
@@ -277,7 +292,8 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     }).then(function(){
     return fetch("/make/teams.json").then(function(r){return r.json();}).then(function(d){
       TEAMS=d;
-      ["home","away","gteam","gvs","steam","rteamA","rteamB","dteamA","dteamB","qteam","tteam"].forEach(function(id){ fillSelect(id, id==="gvs"); });
+      ["home","away","gteam","gvs","steam","rteamA","rteamB","dteamA","dteamB","qteam","tteam","mteamA","mteamB"].forEach(function(id){ fillSelect(id, id==="gvs"); });
+      setSel("mteamA","Brazil"); setSel("mteamB","Argentina"); document.getElementById("mtop").value="When the group stage draw comes out"; document.getElementById("mbottom").value="And your team gets the easy one"; syncMacroFields();
       setSel("tteam","Brazil"); document.getElementById("tlabel").value="PROJECTION ALERT"; document.getElementById("thead").value="Pick a team to load its live projection"; document.getElementById("tticker").value="The headline and odds fill in from the team's current projection";
       setSel("qteam","Germany"); document.getElementById("qquote").value="We treated it like a friendly."; document.getElementById("qattr").value="Germany"; document.getElementById("qcontext").value="Sportacle still has them 68% to win the group.";
       setSel("home","England"); setSel("away","Croatia");
@@ -398,7 +414,32 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     document.getElementById("qphoto").value=q.athlete.id?("https://a.espncdn.com/i/headshots/soccer/players/full/"+q.athlete.id+".png"):"";
     update();
   }
+  var WHENYOU=[
+    "When you get invited to a watch party for a sport you last saw in 2022",
+    "When you picked your bracket winner by which flag looked coolest",
+    "When you've been pronouncing the star player's name wrong for three weeks",
+    "When the game goes to penalties and you realize you care way more than you planned to",
+    "When you confidently explain offside to someone who actually knows the rule",
+    "When your team is winning 1-0 in the 89th and you forget how to breathe",
+    "When VAR takes four minutes to decide a toenail was offside",
+    "When you said it is just group stage and now you are learning the tiebreaker math at 11pm"
+  ];
+  function syncMacroFields(){
+    var bg=opt("mbg").value;
+    document.getElementById("mphotoField").classList.toggle("hide", bg!=="photo");
+    document.getElementById("mteamAField").classList.toggle("hide", bg!=="flag"&&bg!=="vs");
+    document.getElementById("mteamBField").classList.toggle("hide", bg!=="vs");
+  }
   function buildParams(){
+    if(type==="macro"){
+      var mbg=opt("mbg").value, ma=opt("mteamA"), mb=opt("mteamB");
+      var mp={top:val("mtop"), bottom:val("mbottom"), bg:mbg, credit:val("mcredit"),
+              bars:document.getElementById("mbars").checked,
+              ac:ma.getAttribute("data-code")||"", an:ma.value||"", acolor:ma.getAttribute("data-color")||"#1E9B4B"};
+      if(mbg==="photo" && val("mphoto")) mp.photo=val("mphoto");
+      if(mbg==="vs"){ mp.bc=mb.getAttribute("data-code")||""; mp.bn=mb.value||""; mp.bcolor=mb.getAttribute("data-color")||"#C8102E"; }
+      return mp;
+    }
     if(type==="ticker"){
       var tt=opt("tteam");
       var tp={ac:tt.getAttribute("data-code")||"", acolor:tt.getAttribute("data-color")||"#1E9B4B",
@@ -411,6 +452,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       var qp={team:qt.value||"", code:qt.getAttribute("data-code")||"", color:qt.getAttribute("data-color")||"#1E9B4B",
               quote:val("qquote"), attribution:val("qattr")||qt.value||"", context:val("qcontext")};
       if(val("qphoto")) qp.photo=val("qphoto");
+      if(val("qkicker")) qp.kicker=val("qkicker");
       return qp;
     }
     if(type==="definition"){
@@ -478,7 +520,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(val("rhead")) pp.label=val("rhead");
     return pp;
   }
-  function rtype(){ return type==="goal"?"goal":type==="whowins"?"whowins":type==="stats"?"stats":type==="roast"?"verdict":type==="definition"?"panel":type==="quote"?"quotecard":type==="ticker"?"ticker":"final"; }
+  function rtype(){ return type==="goal"?"goal":type==="whowins"?"whowins":type==="stats"?"stats":type==="roast"?"verdict":type==="definition"?"panel":type==="quote"?"quotecard":type==="ticker"?"ticker":type==="macro"?"macro":"final"; }
   var statusEl=document.getElementById("status");
 
   // ---- Stats: pull a team's last completed match + per-player stats from ESPN ----
@@ -884,6 +926,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         document.getElementById("standingsCardFields").classList.toggle("hide", type!=="standings");
         document.getElementById("roastFields").classList.toggle("hide", type!=="roast");
         document.getElementById("defFields").classList.toggle("hide", type!=="definition");
+        document.getElementById("macroFields").classList.toggle("hide", type!=="macro");
         document.getElementById("quoteFields").classList.toggle("hide", type!=="quote");
         document.getElementById("cookedFields").classList.toggle("hide", type!=="cooked");
         document.getElementById("tierboardFields").classList.toggle("hide", type!=="tierboard");
@@ -912,6 +955,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     document.getElementById("dpreset").addEventListener("change", function(){ fillDefCopy(); update(); });
     document.getElementById("oteam").addEventListener("change", drawOddsboard);
     document.getElementById("tteam").addEventListener("change", fillTickerCopy);
+    document.getElementById("mbg").addEventListener("change", function(){ syncMacroFields(); update(); });
+    document.getElementById("mWhenYou").addEventListener("click", function(){ document.getElementById("mtop").value=WHENYOU[Math.floor(Math.random()*WHENYOU.length)]; document.getElementById("mbottom").value=""; update(); });
+    document.getElementById("mfile").addEventListener("change", function(e){ var f=e.target.files&&e.target.files[0]; if(f){ document.getElementById("mphoto").value=URL.createObjectURL(f); document.getElementById("mbg").value="photo"; syncMacroFields(); update(); } });
     document.getElementById("qteam").addEventListener("change", function(){ quoteSquad=null; loadQuoteSquad(); update(); });
     document.getElementById("qplayer").addEventListener("change", quotePlayerPick);
     document.getElementById("defReset").addEventListener("click", function(){ fillDefCopy(); update(); });
@@ -943,6 +989,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(type==="stats"){ return "sportacle-stats-"+(opt("steam").getAttribute("data-code")||"x")+"-"+ts+".png"; }
     if(type==="roast"){ return "sportacle-roast-"+(opt("verdict").value||"x")+"-"+ts+".png"; }
     if(type==="definition"){ return "sportacle-def-"+slug(val("dword")||"word")+"-"+ts+".png"; }
+    if(type==="macro"){ return "sportacle-macro-"+ts+".png"; }
     if(type==="quote"){ return "sportacle-quote-"+(opt("qteam").getAttribute("data-code")||"x")+"-"+ts+".png"; }
     if(type==="cooked"){ return "sportacle-cooked-"+ts+".png"; }
     if(type==="tierboard"){ return "sportacle-tierlist-"+ts+".png"; }

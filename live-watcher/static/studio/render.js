@@ -10,6 +10,15 @@
   'use strict';
   var W = 1080;
   var KH = 'Khand', BR = 'Barlow Semi Condensed', INK = '#11161F';
+  // Anton = a free Impact-alike for classic meme captions (weight 400 only).
+  // Drawn with a RAW ctx.font string (the font() helper quotes the family + can't add a fallback chain).
+  var antonReady = null;
+  function ensureAnton() {
+    if (antonReady) return antonReady;
+    var ff = new FontFace('Anton', "url(https://fonts.gstatic.com/s/anton/v25/1Ptgg87LROyAm3Kz-C8.woff2) format('woff2')");
+    antonReady = ff.load().then(function (f) { document.fonts.add(f); }).catch(function () { });
+    return antonReady;
+  }
 
   // ---- assets ----
   var flagCache = {};
@@ -221,6 +230,39 @@
     }
     ctx.restore();
   }
+  // classic image-macro caption: uppercase Anton, chunky black outline + white fill, autofit + wrap.
+  function drawImpactCaption(ctx, text, x, y, maxW, opts) {
+    var o = opts || {};
+    var place = o.place || 'bottom', maxH = o.maxH || 360;
+    var startSize = o.startSize || 86, minSize = o.minSize || 30, maxLines = o.maxLines || 3;
+    var fill = o.fill || '#fff', stroke = o.stroke || '#000';
+    var strokeRatio = o.strokeRatio != null ? o.strokeRatio : 0.16;
+    var shadow = o.shadow !== false, lineHeight = o.lineHeight || 0.96, tracking = o.tracking != null ? o.tracking : 1;
+    var up = String(text || '').toUpperCase().trim();
+    if (!up) return { height: 0, size: 0, lines: [] };
+    function setFont(s) { ctx.font = '400 ' + s + 'px Anton, Impact, "Arial Narrow", sans-serif'; ls(ctx, tracking); }
+    var size = startSize, lines;
+    for (; size >= minSize; size -= 2) {
+      setFont(size); lines = wrapLines(ctx, up, maxW);
+      var tooTall = lines.length * size * lineHeight > maxH, tooMany = lines.length > maxLines, fits = true;
+      for (var k = 0; k < lines.length; k++) if (ctx.measureText(lines[k]).width > maxW) { fits = false; break; }
+      if (fits && !tooTall && !tooMany) break;
+    }
+    setFont(size);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round'; ctx.miterLimit = 2;
+    var lh = size * lineHeight, blockH = lines.length * lh;
+    var firstBaseline = (place === 'top') ? (y + size) : (y - blockH + size);
+    for (var i = 0; i < lines.length; i++) {
+      var by = firstBaseline + i * lh;
+      ctx.lineWidth = size * strokeRatio; ctx.strokeStyle = stroke;
+      if (shadow) { ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = size * 0.12; ctx.shadowOffsetY = size * 0.06; }
+      ctx.strokeText(lines[i], x, by); ctx.strokeText(lines[i], x, by);
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      ctx.fillStyle = fill; ctx.fillText(lines[i], x, by);
+    }
+    ls(ctx, 0);
+    return { height: blockH, size: size, lines: lines };
+  }
   function drawStamp(ctx, cx, cy, text, color, scale) {
     scale = scale || 1; text = String(text || '').toUpperCase();
     ctx.save();
@@ -328,6 +370,40 @@
     ctx.fillStyle = INKB; ctx.fillText(t1, fx, fy); ctx.fillStyle = RED; ctx.fillText(t2, fx + b1, fy); ls(ctx, 0);
   }
   // ---- QUOTE CARD (ESPN/B-R style: hero + oversized quote + attribution + context) ----
+  // tiny ownable corner wordmark for the casual macro register (drawBrand is too heavy here)
+  function macroMark(ctx) {
+    ctx.font = font('700', 30, KH); ls(ctx, 2); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    var t1 = 'SPORT', t2 = 'ACLE', b1 = ctx.measureText(t1).width, x = 40, y = W - 34;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.65)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 2;
+    ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.fillText(t1, x, y);
+    ctx.fillStyle = '#FFC400'; ctx.fillText(t2, x + b1, y);
+    ctx.restore(); ls(ctx, 0);
+  }
+  // ---- IMAGE MACRO (classic impact-caption meme: photo/flag/VS bg + top/bottom captions) ----
+  function renderMacro(ctx, p, F) {
+    ctx.clearRect(0, 0, W, W);
+    var bg = p.bg || (F.photo && F.photo.naturalWidth ? 'photo' : (p.bc ? 'vs' : 'flag'));
+    if (bg === 'photo' && F.photo && F.photo.naturalWidth) {
+      ctx.fillStyle = '#0d1016'; ctx.fillRect(0, 0, W, W);
+      cover(ctx, F.photo, 0, 0, W, W, 0.5, (p.focusY != null ? p.focusY : 0.35));
+    } else if (bg === 'vs' && F.b) {
+      drawVsBg(ctx, p, { a: F.a, b: F.b }); ctx.fillStyle = 'rgba(0,0,0,.30)'; ctx.fillRect(0, 0, W, W);
+    } else if (bg === 'flag' && F.a) {
+      ctx.fillStyle = p.acolor || '#0d1016'; ctx.fillRect(0, 0, W, W);
+      cover(ctx, F.a, 0, 0, W, W, 0.5, 0.5);
+      ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = p.acolor || '#000'; ctx.fillRect(0, 0, W, W); ctx.restore();
+    } else {
+      var gg = ctx.createLinearGradient(0, 0, 0, W); gg.addColorStop(0, p.acolor || '#1b2330'); gg.addColorStop(1, '#0d1016');
+      ctx.fillStyle = gg; ctx.fillRect(0, 0, W, W);
+    }
+    if (!p.flat && p.top) { var gt = ctx.createLinearGradient(0, 0, 0, 360); gt.addColorStop(0, p.bars ? '#000' : 'rgba(0,0,0,.62)'); gt.addColorStop(1, p.bars ? '#000' : 'rgba(0,0,0,0)'); ctx.fillStyle = gt; ctx.fillRect(0, 0, W, p.bars ? 300 : 360); }
+    if (!p.flat && p.bottom) { var gb = ctx.createLinearGradient(0, W, 0, W - 380); gb.addColorStop(0, p.bars ? '#000' : 'rgba(0,0,0,.66)'); gb.addColorStop(1, p.bars ? '#000' : 'rgba(0,0,0,0)'); ctx.fillStyle = gb; ctx.fillRect(0, W - (p.bars ? 300 : 380), W, p.bars ? 300 : 380); }
+    if (p.credit) { ctx.font = font('700', 22, BR); ls(ctx, 3); ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(String(p.credit).toUpperCase(), 56, 56); ls(ctx, 0); }
+    var sh = p.shadow !== false && !p.bars;
+    if (p.top) drawImpactCaption(ctx, p.top, 540, 72, W - 112, { place: 'top', maxH: 300, startSize: 84, shadow: sh });
+    if (p.bottom) drawImpactCaption(ctx, p.bottom, 540, W - 72, W - 112, { place: 'bottom', maxH: 340, startSize: 92, shadow: sh });
+    macroMark(ctx);
+  }
   function renderQuoteCard(ctx, p, F) {
     var CREAM = '#F4F2EB', INKB = '#14171C', RED = '#C8102E', col = p.color || '#1E9B4B';
     var heroH = 632;
@@ -347,6 +423,8 @@
     ctx.beginPath(); ctx.moveTo(0, heroH); ctx.quadraticCurveTo(540, heroH - 44, W, heroH); ctx.lineTo(W, W); ctx.lineTo(0, W); ctx.closePath();
     ctx.fillStyle = CREAM; ctx.fill();
     ctx.beginPath(); ctx.moveTo(0, heroH); ctx.quadraticCurveTo(540, heroH - 44, W, heroH); ctx.lineWidth = 6; ctx.strokeStyle = RED; ctx.stroke();
+    // optional kicker (e.g. "ON THIS DATE IN 2019:") in the team color, just below the carve
+    if (p.kicker) { ctx.font = font('700', 27, BR); ls(ctx, 3); ctx.fillStyle = col; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(String(p.kicker).toUpperCase(), 80, heroH + 66); ls(ctx, 0); }
     // quote glyph + bold quote (bottom-anchored block)
     var fw = fitWrap(ctx, String(p.quote || '').toUpperCase(), '700', 90, KH, 922, 4, 48);
     var lh = fw.size * 0.85, n = fw.lines.length, lastBase = 902 - (p.context ? 36 : 0), topBase = lastBase - (n - 1) * lh;
@@ -882,6 +960,13 @@
       if (type === 'quotecard') {
         return Promise.all([loadFlag(p.code), p.photo ? loadImg(p.photo) : Promise.resolve(null)]).then(function (f) {
           renderQuoteCard(ctx, p, { flag: f[0], photo: f[1] });
+        });
+      }
+      if (type === 'macro') {
+        return ensureAnton().then(function () {
+          return Promise.all([loadFlag(p.ac), loadFlag(p.bc), p.photo ? loadImg(p.photo) : Promise.resolve(null)]).then(function (f) {
+            renderMacro(ctx, p, { a: f[0], b: f[1], photo: f[2] });
+          });
         });
       }
       return Promise.all([loadFlag(p.ac), loadFlag(p.bc)]).then(function (f) {
