@@ -108,6 +108,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <button data-type="tierboard">Tier List</button>
         <button data-type="oddsboard">Odds</button>
         <button data-type="movers">Movers</button>
+        <button data-type="qualify">Qualify</button>
+        <button data-type="permutations">Permutations</button>
+        <button data-type="houseline">House Line</button>
         <button data-type="ticker">Ticker</button>
         <button data-type="live">Live</button>
       </div>
@@ -271,6 +274,76 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         <div class="minfo">Risers and fallers from the latest result that moved the bracket. From the projection shift log.</div>
       </div>
 
+      <!-- qualify (what each side needs: two-column + traffic-light scenarios) -->
+      <div id="qualifyFields" class="hide">
+        <div class="row">
+          <div class="field"><label>Team A</label><select id="qfA"></select></div>
+          <div class="field"><label>Team B</label><select id="qfB"></select></div>
+        </div>
+        <div class="field"><label>Title</label><input id="qftitle" type="text" maxlength="22" placeholder="WHAT THEY NEED"></div>
+        <div class="row">
+          <div class="field"><label>Subtitle</label><input id="qfsub" type="text" maxlength="34" placeholder="GROUP D / FINAL MATCHDAY"></div>
+          <div class="field"><label>Context</label><input id="qfctx" type="text" maxlength="20" placeholder="WORLD CUP 2026"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>A verdict</label><input id="qfvA" type="text" maxlength="18" placeholder="WIN AND IN"></div>
+          <div class="field"><label>A light</label><select id="qflA"><option value="g">Green</option><option value="a">Amber</option><option value="r">Red</option></select></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>B verdict</label><input id="qfvB" type="text" maxlength="18" placeholder="MUST WIN"></div>
+          <div class="field"><label>B light</label><select id="qflB"><option value="g">Green</option><option value="a">Amber</option><option value="r">Red</option></select></div>
+        </div>
+        <div class="minfo">Up to three scenario rows: a result, then what each side gets.</div>
+        <div class="row">
+          <div class="field"><label>Result 1</label><input id="qfr1" type="text" maxlength="14" placeholder="USA WIN"></div>
+          <div class="field"><label>A gets</label><input id="qfa1" type="text" maxlength="13" placeholder="THROUGH"></div>
+          <div class="field"><label>A</label><select id="qfal1"><option value="g">Green</option><option value="a">Amber</option><option value="r">Red</option></select></div>
+          <div class="field"><label>B gets</label><input id="qfb1" type="text" maxlength="13" placeholder="OUT"></div>
+          <div class="field"><label>B</label><select id="qfbl1"><option value="g">Green</option><option value="a">Amber</option><option value="r">Red</option></select></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Result 2</label><input id="qfr2" type="text" maxlength="14" placeholder="DRAW"></div>
+          <div class="field"><label>A gets</label><input id="qfa2" type="text" maxlength="13" placeholder="THROUGH"></div>
+          <div class="field"><label>A</label><select id="qfal2"><option value="g">Green</option><option value="a">Amber</option><option value="r">Red</option></select></div>
+          <div class="field"><label>B gets</label><input id="qfb2" type="text" maxlength="13" placeholder="OUT"></div>
+          <div class="field"><label>B</label><select id="qfbl2"><option value="g">Green</option><option value="a">Amber</option><option value="r">Red</option></select></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Result 3</label><input id="qfr3" type="text" maxlength="14" placeholder="USA LOSE"></div>
+          <div class="field"><label>A gets</label><input id="qfa3" type="text" maxlength="13" placeholder="NEEDS HELP"></div>
+          <div class="field"><label>A</label><select id="qfal3"><option value="g">Green</option><option value="a">Amber</option><option value="r">Red</option></select></div>
+          <div class="field"><label>B gets</label><input id="qfb3" type="text" maxlength="13" placeholder="THROUGH"></div>
+          <div class="field"><label>B</label><select id="qfbl3"><option value="g">Green</option><option value="a">Amber</option><option value="r">Red</option></select></div>
+        </div>
+        <div class="field"><label>Kicker (optional)</label><input id="qfkick" type="text" maxlength="70" placeholder="The takeaway line"></div>
+        <div class="field"><label>Footnote</label><input id="qffoot" type="text" maxlength="40" placeholder="gosportacle.com"></div>
+      </div>
+
+      <!-- permutations (whole-group qualification matrix, standings-derived) -->
+      <div id="permutationsFields" class="hide">
+        <div class="field"><label>Group</label><select id="pmgroup"></select></div>
+        <div class="field"><label>Kicker (optional)</label><input id="pmkick" type="text" maxlength="34" placeholder="PATH TO THE ROUND OF 32"></div>
+        <div class="field"><label>Footnote (optional)</label><input id="pmfoot" type="text" maxlength="40" placeholder="gosportacle.com"></div>
+        <div class="minfo">Maps the whole group's road to the knockouts from the live table. THROUGH and ELIMINATED only appear when the math is locked; everyone else is read as in-contention. Best once teams have played. First load takes a moment.</div>
+      </div>
+
+      <!-- house line (engine-as-antagonist taunt + reply bait) -->
+      <div id="houselineFields" class="hide">
+        <div class="field"><label>Team</label><select id="hlteam"></select></div>
+        <button type="button" class="linkbtn" id="hlLoad">Load the engine's R32 projection</button>
+        <div class="field"><label>Kicker</label><input id="hlkick" type="text" maxlength="22" placeholder="THE HOUSE SAYS"></div>
+        <div class="row">
+          <div class="field"><label>Big number</label><input id="hlpct" type="text" maxlength="6" placeholder="54%"></div>
+          <div class="field"><label>Subject</label><input id="hlsub" type="text" maxlength="30" placeholder="USA TO FACE SWITZERLAND"></div>
+        </div>
+        <div class="field"><label>Taunt</label><input id="hltaunt" type="text" maxlength="64" placeholder="Our model said it. Think it is wrong?"></div>
+        <div class="field"><label>Sub line</label><input id="hlsubline" type="text" maxlength="80" placeholder="Per the Sportacle engine."></div>
+        <div class="row">
+          <div class="field"><label>Reply prompt</label><input id="hlprompt" type="text" maxlength="26" placeholder="REPLY YOUR NUMBER"></div>
+          <button type="button" class="linkbtn" id="hlShuffle" style="align-self:flex-end">Shuffle a taunt</button>
+        </div>
+      </div>
+
       <!-- who's cooked (standings-derived) fields -->
       <div id="cookedFields" class="hide">
         <div class="minfo">Ranks the teams closest to a group-stage exit, pulled live from the standings. First load takes a moment.</div>
@@ -316,7 +389,16 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     }).then(function(){
     return fetch("/make/teams.json").then(function(r){return r.json();}).then(function(d){
       TEAMS=d;
-      ["home","away","gteam","gvs","steam","rteamA","rteamB","dteamA","dteamB","qteam","tteam","mteamA","mteamB","mdA","mdB"].forEach(function(id){ fillSelect(id, id==="gvs"); });
+      ["home","away","gteam","gvs","steam","rteamA","rteamB","dteamA","dteamB","qteam","tteam","mteamA","mteamB","mdA","mdB","qfA","qfB","hlteam"].forEach(function(id){ fillSelect(id, id==="gvs"); });
+      var pmg=document.getElementById("pmgroup"); pmg.innerHTML="ABCDEFGHIJKL".split("").map(function(L){return '<option value="Group '+L+'">Group '+L+'</option>';}).join(""); setSel("pmgroup","Group D");
+      setSel("qfA","United States"); setSel("qfB","Australia");
+      document.getElementById("qftitle").value="WHAT THEY NEED"; document.getElementById("qfsub").value="GROUP D / FINAL MATCHDAY"; document.getElementById("qfctx").value="WORLD CUP 2026";
+      document.getElementById("qfvA").value="WIN AND IN"; document.getElementById("qflA").value="g"; document.getElementById("qfvB").value="MUST WIN"; document.getElementById("qflB").value="r";
+      document.getElementById("qfr1").value="USA WIN"; document.getElementById("qfa1").value="THROUGH"; document.getElementById("qfal1").value="g"; document.getElementById("qfb1").value="OUT"; document.getElementById("qfbl1").value="r";
+      document.getElementById("qfr2").value="DRAW"; document.getElementById("qfa2").value="THROUGH"; document.getElementById("qfal2").value="g"; document.getElementById("qfb2").value="OUT"; document.getElementById("qfbl2").value="r";
+      document.getElementById("qfr3").value="USA LOSE"; document.getElementById("qfa3").value="NEEDS HELP"; document.getElementById("qfal3").value="a"; document.getElementById("qfb3").value="THROUGH"; document.getElementById("qfbl3").value="g";
+      document.getElementById("qfkick").value="Win or draw and the USA is into the Round of 32.";
+      setSel("hlteam","United States"); document.getElementById("hlkick").value="THE HOUSE SAYS"; document.getElementById("hlprompt").value="REPLY YOUR NUMBER";
       setSel("mteamA","Brazil"); setSel("mteamB","Argentina");
       setSel("mdA","United States"); setSel("mdB","Australia"); document.getElementById("mdtag").value="MATCHDAY"; document.getElementById("mdstakes").value="Win and the group is theirs"; document.getElementById("mtop").value="When the group stage draw comes out"; document.getElementById("mbottom").value="And your team gets the easy one"; syncMacroFields();
       setSel("tteam","Brazil"); document.getElementById("tlabel").value="PROJECTION ALERT"; document.getElementById("thead").value="Pick a team to load its live projection"; document.getElementById("tticker").value="The headline and odds fill in from the team's current projection";
@@ -491,6 +573,22 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     document.getElementById("mteamBField").classList.toggle("hide", bg!=="vs");
   }
   function buildParams(){
+    if(type==="qualify"){
+      var qa=opt("qfA"), qb=opt("qfB");
+      function qscen(n){ var r=val("qfr"+n), oa=val("qfa"+n), ob=val("qfb"+n); if(!r&&!oa&&!ob) return null;
+        return {result:r, outA:oa, lightA:opt("qfal"+n).value, outB:ob, lightB:opt("qfbl"+n).value}; }
+      var qs=[qscen(1),qscen(2),qscen(3)].filter(Boolean);
+      return {ac:qa.getAttribute("data-code")||"", an:qa.value||"", bc:qb.getAttribute("data-code")||"", bn:qb.value||"",
+              title:val("qftitle")||"WHAT THEY NEED", subtitle:val("qfsub"), context:val("qfctx"),
+              verdictA:val("qfvA"), lightA:opt("qflA").value, verdictB:val("qfvB"), lightB:opt("qflB").value,
+              scenarios:qs, kicker:val("qfkick"), footnote:val("qffoot")||"gosportacle.com"};
+    }
+    if(type==="houseline"){
+      var hl=opt("hlteam");
+      return {code:hl.getAttribute("data-code")||"", color:hl.getAttribute("data-color")||"#0A3478",
+              kicker:val("hlkick")||"THE HOUSE SAYS", pct:val("hlpct"), subject:val("hlsub"),
+              taunt:val("hltaunt"), sub:val("hlsubline"), prompt:val("hlprompt")||"REPLY YOUR NUMBER"};
+    }
     if(type==="matchday"){
       var ma=opt("mdA"), mb=opt("mdB");
       var mp={ac:ma.getAttribute("data-code")||"", an:ma.value||"", acolor:ma.getAttribute("data-color")||"#0A3478",
@@ -591,7 +689,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(val("rhead")) pp.label=val("rhead");
     return pp;
   }
-  function rtype(){ return type==="goal"?"goal":type==="matchday"?"matchday":type==="whowins"?"whowins":type==="stats"?"stats":type==="roast"?"verdict":type==="definition"?"panel":type==="quote"?"quotecard":type==="ticker"?"ticker":type==="macro"?"macro":"final"; }
+  function rtype(){ return type==="goal"?"goal":type==="matchday"?"matchday":type==="qualify"?"qualify":type==="houseline"?"houseline":type==="whowins"?"whowins":type==="stats"?"stats":type==="roast"?"verdict":type==="definition"?"panel":type==="quote"?"quotecard":type==="ticker"?"ticker":type==="macro"?"macro":"final"; }
   var statusEl=document.getElementById("status");
 
   // ---- Stats: pull a team's last completed match + per-player stats from ESPN ----
@@ -832,6 +930,63 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       return window.SportacleRender.renderTo(cv,"cooked",params,2).then(function(){ if(!busy) statusEl.textContent=rows.length+" teams on the brink"; });
     }).catch(function(e){ statusEl.textContent="Couldn't load standings: "+e; });
   }
+  // ---- Permutations: whole-group road to the R32, read from the live table ----
+  // THROUGH / ELIMINATED are only asserted when mathematically locked (top-2 advance,
+  // 3 group games). Everyone else is framed as in-contention. Never a false claim.
+  var permStand=null;
+  function drawPermutations(){
+    var gname=opt("pmgroup").value; if(!gname) return Promise.resolve();
+    function build(d){
+      var g=((d.children||[]).filter(function(x){return x.name===gname;}))[0]; if(!g){ statusEl.textContent="Group not found."; return; }
+      var ents=((g.standings||{}).entries||[]).map(function(en){ var name=(en.team||{}).displayName||"";
+        return {name:name, code:teamCode(name), color:teamColor(name), P:numS(en,"gamesPlayed"), Pts:numS(en,"points"), GD:numS(en,"pointDifferential"), GF:numS(en,"pointsFor")}; });
+      ents.sort(function(a,b){ return (b.Pts-a.Pts)||(b.GD-a.GD)||(b.GF-a.GF); });
+      var anyPlayed=ents.some(function(t){return t.P>0;});
+      ents.forEach(function(t){ t.left=Math.max(0,3-t.P); t.max=t.Pts+3*t.left; });
+      var pts2 = ents.length>=2 ? ents[1].Pts : 0;
+      function statusFor(t,i){
+        var aboveCeil=ents.filter(function(o){return o!==t && o.Pts>t.max;}).length;   // already out of my reach
+        var canPass=ents.filter(function(o){return o!==t && o.max>t.Pts;}).length;     // could still climb past me
+        if(t.left===0) return i<=1?"in":"out";
+        if(aboveCeil>=2) return "out";   // two teams locked above me -> cannot make top two
+        if(canPass<=1) return "in";      // at most one team can pass me -> guaranteed top two
+        if(i<=1) return "win";
+        if(t.left<=1) return (pts2-t.Pts)>=1 ? "mustwin" : "draw";   // final matchday: must win to climb
+        return "draw";                   // games still in hand -> in the hunt
+      }
+      var TAG={in:"THROUGH", win:"POLE POSITION", draw:"IN THE HUNT", mustwin:"WIN OR HOME", out:"ELIMINATED"};
+      var rows=ents.slice(0,4).map(function(t,i){ var st=statusFor(t,i), gap=pts2-t.Pts, line;
+        if(st==="in") line = t.left===0 ? "Through to the knockouts." : "Mathematically safe. Booked for the Round of 32.";
+        else if(st==="out") line = t.left===0 ? "Out. The group stage ends here." : "Cannot reach the top two. Playing for pride.";
+        else if(st==="win") line = "Holding a top-two spot with "+t.left+" to play.";
+        else if(st==="mustwin") line = "Win the finale or it is over. "+gap+" point"+(gap===1?"":"s")+" back of the cut.";
+        else line = (gap<=0?"Right on the cut line":(gap+" point"+(gap===1?"":"s")+" back of the cut"))+" with "+t.left+" to play.";
+        return {code:t.code, name:t.name, color:t.color, pts:t.Pts+(t.Pts===1?" PT":" PTS"), status:st, tag:TAG[st], line:line}; });
+      if(!anyPlayed) rows.forEach(function(r){ r.status="draw"; r.tag="ALL TO PLAY"; r.line="The group stage has not kicked off."; });
+      var params={group:gname, kicker:val("pmkick")||"PATH TO THE ROUND OF 32", footnote:val("pmfoot")||"gosportacle.com", rows:rows};
+      return window.SportacleRender.renderTo(cv,"permutations",params,2).then(function(){ if(!busy) statusEl.textContent=gname+" path mapped."; });
+    }
+    if(permStand) return Promise.resolve(build(permStand));
+    statusEl.textContent="Reading the group…";
+    return fetch(STANDINGS_URL).then(function(r){return r.json();}).then(function(d){ permStand=d; return build(d); }).catch(function(e){ statusEl.textContent="Standings load failed: "+e; });
+  }
+  // ---- House Line: the engine's headline R32 read as a taunt + reply bait ----
+  var HL_TAUNTS=["Our model said it out loud. Think it is wrong?","The house has a number. Beat it.","This is the read. Come argue with the math.","The engine is not hedging. Are you?","Screenshot it. We will check back after full time."];
+  var hlLoaded=false;
+  function loadHouseLine(){
+    var tn=opt("hlteam").value; if(!tn) return;
+    statusEl.textContent="Reading the projection…";
+    loadPreds().then(function(d){
+      var m=(d.matchups||[]).filter(function(x){return canon((x.team||{}).name)===canon(tn);})[0];
+      if(!m){ statusEl.textContent="No engine projection for "+tn+" yet (type the numbers in)."; update(); return; }
+      var opp=m.opponent||{};
+      document.getElementById("hlpct").value = opp.prob!=null ? opp.prob+"%" : "";
+      document.getElementById("hlsub").value = (tn+" TO FACE "+(opp.name||"THE FIELD")).toUpperCase();
+      if(!val("hltaunt")) document.getElementById("hltaunt").value = pickOne(HL_TAUNTS);
+      if(!val("hlsubline")) document.getElementById("hlsubline").value = "Projected Round of 32 opponent, per the Sportacle engine.";
+      update(); if(!busy) statusEl.textContent=tn+" projection loaded.";
+    }).catch(function(e){ statusEl.textContent="Projections load failed: "+e; });
+  }
   function drawStandingsCard(){
     var gname=opt("sgroup").value; if(!gname) return Promise.resolve();
     statusEl.textContent="Loading standings…";
@@ -981,6 +1136,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(type==="cooked"){ drawCooked(); return; }
     if(type==="tierboard"){ drawTierboard(); return; }
     if(type==="movers"){ drawMovers(); return; }
+    if(type==="permutations"){ drawPermutations(); return; }
     if(type==="oddsboard"){ fillOddsTeams(); return; }
     render().then(function(){ if(!busy) statusEl.textContent="Preview updated."; }).catch(function(e){ statusEl.textContent="Render error: "+e; });
   }
@@ -1004,6 +1160,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         document.getElementById("tierboardFields").classList.toggle("hide", type!=="tierboard");
         document.getElementById("oddsboardFields").classList.toggle("hide", type!=="oddsboard");
         document.getElementById("moversFields").classList.toggle("hide", type!=="movers");
+        document.getElementById("qualifyFields").classList.toggle("hide", type!=="qualify");
+        document.getElementById("permutationsFields").classList.toggle("hide", type!=="permutations");
+        document.getElementById("houselineFields").classList.toggle("hide", type!=="houseline");
         document.getElementById("tickerFields").classList.toggle("hide", type!=="ticker");
         document.getElementById("liveFields").classList.toggle("hide", type!=="live");
         document.getElementById("scoreRow").classList.toggle("hide", type==="whowins");
@@ -1015,6 +1174,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         else if(type==="quote" && !quoteSquad){ loadQuoteSquad(); update(); }
         else if(type==="ticker"){ fillTickerCopy(); }
         else if(type==="matchday" && !mdLoaded){ mdLoaded=true; loadMatchdayFixture(); }
+        else if(type==="houseline" && !hlLoaded){ hlLoaded=true; loadHouseLine(); }
         else if(type!=="live"){ update(); }
       });
     });
@@ -1031,6 +1191,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     document.getElementById("mdA").addEventListener("change", loadMatchdayFixture);
     document.getElementById("mdB").addEventListener("change", loadMatchdayFixture);
     document.getElementById("tteam").addEventListener("change", fillTickerCopy);
+    document.getElementById("hlLoad").addEventListener("click", loadHouseLine);
+    document.getElementById("hlteam").addEventListener("change", loadHouseLine);
+    document.getElementById("hlShuffle").addEventListener("click", function(){ document.getElementById("hltaunt").value=pickOne(HL_TAUNTS); update(); });
     document.getElementById("mbg").addEventListener("change", function(){ syncMacroFields(); update(); });
     document.getElementById("mWhenYou").addEventListener("click", function(){ document.getElementById("mtop").value=WHENYOU[Math.floor(Math.random()*WHENYOU.length)]; document.getElementById("mbottom").value=""; update(); });
     document.getElementById("mfile").addEventListener("change", function(e){ var f=e.target.files&&e.target.files[0]; if(f){ document.getElementById("mphoto").value=URL.createObjectURL(f); document.getElementById("mbg").value="photo"; syncMacroFields(); update(); } });
@@ -1073,6 +1236,9 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(type==="movers"){ return "sportacle-movers-"+ts+".png"; }
     if(type==="ticker"){ return "sportacle-ticker-"+(opt("tteam").getAttribute("data-code")||"x")+"-"+ts+".png"; }
     if(type==="oddsboard"){ return "sportacle-odds-"+(opt("oteam").getAttribute("data-code")||slug(opt("oteam").value)||"x")+"-"+ts+".png"; }
+    if(type==="qualify"){ return "sportacle-qualify-"+(opt("qfA").getAttribute("data-code")||"x")+"-"+(opt("qfB").getAttribute("data-code")||"x")+"-"+ts+".png"; }
+    if(type==="permutations"){ return "sportacle-permutations-"+(opt("pmgroup").value||"x").replace(/\s+/g,"").toLowerCase()+"-"+ts+".png"; }
+    if(type==="houseline"){ return "sportacle-houseline-"+(opt("hlteam").getAttribute("data-code")||"x")+"-"+ts+".png"; }
     return "sportacle-"+type+"-"+(opt("home").getAttribute("data-code")||"x")+"-"+(opt("away").getAttribute("data-code")||"x")+"-"+(val("hg")||0)+"-"+(val("ag")||0)+"-"+ts+".png";
   }
   var dlBtn=document.getElementById("dl");
@@ -1080,7 +1246,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(busy) return; busy=true; dlBtn.disabled=true;
     var name=fname(); statusEl.textContent="Rendering...";
     clearTimeout(t);
-    (type==="infographic"?drawInfographic():type==="standings"?drawStandingsCard():type==="cooked"?drawCooked():type==="tierboard"?drawTierboard():type==="movers"?drawMovers():type==="oddsboard"?drawOddsboard():render()).then(function(){
+    (type==="infographic"?drawInfographic():type==="standings"?drawStandingsCard():type==="cooked"?drawCooked():type==="tierboard"?drawTierboard():type==="movers"?drawMovers():type==="permutations"?drawPermutations():type==="oddsboard"?drawOddsboard():render()).then(function(){
       cv.toBlob(function(blob){
         if(!blob){ busy=false; dlBtn.disabled=false; statusEl.textContent="Export failed."; return; }
         var url=URL.createObjectURL(blob), a=document.createElement("a");
