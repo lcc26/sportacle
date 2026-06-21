@@ -12,7 +12,7 @@ the phone never has to do the watching and nothing is missed while it sleeps.
 stdlib only (urllib, http.server, threading, json) -> no pip install, no
 third-party supply-chain surface. Run: PORT=8080 python watcher.py
 """
-import base64, json, os, posixpath, random, re, time, threading, unicodedata, urllib.request, urllib.error
+import base64, html, json, os, posixpath, random, re, time, threading, unicodedata, urllib.parse, urllib.request, urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -34,6 +34,14 @@ STATE_PATH = os.environ.get("STATE_PATH", "state.json")
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_REPO = os.environ.get("GITHUB_REPO", "lcc26/sportacle")
 GITHUB_WORKFLOW = os.environ.get("GITHUB_WORKFLOW", "update-predictions.yml")
+# Phone push: when a notable ("recommended") card is generated, POST it to an
+# ntfy.sh topic so the phone gets a tappable deep-link to the card. No-op until
+# NTFY_TOPIC is set on Railway. Posting stays human (view-only); this only notifies.
+NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "")
+NTFY_SERVER = os.environ.get("NTFY_SERVER", "https://ntfy.sh").rstrip("/")
+LIVE_BASE = os.environ.get("LIVE_BASE", "https://sportacle-live-production.up.railway.app").rstrip("/")
+# Auto-source CC-licensed player portraits (Wikimedia Commons) for player cards.
+COMMONS_PHOTOS = os.environ.get("COMMONS_PHOTOS", "1") != "0"
 UA = {"User-Agent": "SportacleLiveWatcher/1.0 (+https://gosportacle.com)"}
 MAX_CARDS = 60
 KEEP_HOURS = 18
@@ -182,16 +190,16 @@ def last_scorer(sm, scored_name):
         team = (pl.get("team") or {}).get("displayName") or (pl.get("team") or {}).get("name") or ""
         if canon(team) != c:
             continue
-        who = ""
+        who = ""; aid = ""
         ai = pl.get("athletesInvolved") or []
         if ai and ai[0].get("displayName"):
-            who = ai[0]["displayName"]
+            who = ai[0]["displayName"]; aid = str(ai[0].get("id") or "")
         else:
             parts = pl.get("participants") or []
             if parts and (parts[0].get("athlete") or {}).get("displayName"):
-                who = parts[0]["athlete"]["displayName"]
+                who = parts[0]["athlete"]["displayName"]; aid = str((parts[0].get("athlete") or {}).get("id") or "")
         mn = (pl.get("clock") or {}).get("displayValue") or pl.get("time") or ""
-        best = {"scorer": who, "min": mn}
+        best = {"scorer": who, "min": mn, "id": aid}
     return best
 
 def surname(full):
@@ -243,18 +251,83 @@ def load_state():
     except Exception as e:
         print("[state] load failed (%s): %s" % (STATE_PATH, e), flush=True)
 
+# Cards worth pinging the phone for + pre-drafting an editable caption.
+RECO_KINDS = {"Goal", "Player", "Roast", "Market Movers", "Definition"}
+
+def caption_for(kind, ctype, p, matchup):
+    # A draft, editable tweet caption assembled from facts already in the spec.
+    # NO link in the body (a URL ~13x's any future API post cost; it goes in bio).
+    try:
+        if ctype == "goal":
+            who, mn, sc = p.get("scorer", ""), p.get("min", ""), p.get("score", "")
+            head = (who + (" " + mn if mn else "")) if who else (p.get("team", "") + " score")
+            return (head + (" to make it " + sc if sc else "") + ". " + matchup).strip()
+        if ctype == "stats":
+            st = p.get("stats") or []
+            line = ", ".join("%s %s" % (x.get("value", ""), x.get("label", "")) for x in st[:3] if x.get("value") not in ("", "0"))
+            tag = "Player of the match: " if p.get("motm") else ""
+            return (tag + p.get("player", "") + (" (" + line + ")" if line else "") + ". " + (p.get("context") or matchup)).strip()
+        if ctype == "verdict":
+            return " ".join(x for x in [p.get("headline", ""), p.get("receipt", "")] if x) or matchup
+        if ctype == "panel":
+            return (p.get("word", "") + ": " + (p.get("def1", "") or "")).strip(": ").strip() or matchup
+        if ctype == "movers":
+            rs = (p.get("risers") or []) + (p.get("fallers") or [])
+            if rs:
+                c = rs[0]
+                return "%s's projected R32 foe: %s -> %s. The bracket moved." % (c.get("team", ""), c.get("oldOpp", ""), c.get("newOpp", ""))
+            return "The projected bracket moved."
+        if ctype == "final":
+            return "%s %s-%s %s. Full time." % (p.get("an", ""), p.get("hg", "0"), p.get("ag", "0"), p.get("bn", ""))
+        if ctype == "half":
+            return "%s %s-%s %s at the break." % (p.get("an", ""), p.get("hg", "0"), p.get("ag", "0"), p.get("bn", ""))
+        if ctype == "whowins":
+            return "%s vs %s. Who wins?" % (p.get("an", ""), p.get("bn", ""))
+    except Exception:
+        pass
+    return matchup
+
+_push_ready = [False]   # flips True after the first poll so boot-backfill doesn't flood the phone
+_last_push = [0.0]
+def notify_push(card):
+    if not NTFY_TOPIC or not _push_ready[0]:
+        return
+    now = time.time()
+    if now - _last_push[0] < 8:    # collapse a full-time burst into one ping; the feed holds the rest
+        return
+    _last_push[0] = now
+    try:
+        title = (card.get("label") or card.get("kind") or "Sportacle")
+        title = "".join(ch for ch in title if ord(ch) < 128).strip() or "Sportacle"   # HTTP header must be latin-1
+        body = (card.get("caption") or card.get("matchup") or "")[:240]
+        click = "%s/live/#%s" % (LIVE_BASE, urllib.parse.quote(card.get("id", ""), safe=""))
+        req = urllib.request.Request(NTFY_SERVER + "/" + urllib.parse.quote(NTFY_TOPIC, safe=""),
+                                     data=body.encode("utf-8"),
+                                     headers={"Title": title, "Click": click, "Tags": "soccer",
+                                              "User-Agent": "SportacleLiveWatcher"})
+        with urllib.request.urlopen(req, timeout=10):
+            pass
+    except Exception as e:
+        print("[push] failed: %s" % e, flush=True)
+
 def add_card(key, kind, ctype, params, label, matchup):
     with LOCK:
         if key in seen:
             return
         seen.add(key)
-        cards.insert(0, {"id": key, "kind": kind, "type": ctype, "params": params,
-                         "label": label, "matchup": matchup, "ts": int(time.time() * 1000)})
+        card = {"id": key, "kind": kind, "type": ctype, "params": params,
+                "label": label, "matchup": matchup,
+                "caption": caption_for(kind, ctype, params, matchup),
+                "recommended": kind in RECO_KINDS,
+                "ts": int(time.time() * 1000)}
+        cards.insert(0, card)
         cutoff = (time.time() - KEEP_HOURS * 3600) * 1000
         kept = [c for c in cards if c["ts"] >= cutoff][:MAX_CARDS]
         cards[:] = kept
     save_state()
     print("[card] %s  %s" % (kind, matchup), flush=True)
+    if card["recommended"]:
+        notify_push(card)
 
 def vs_params(ev):
     return {
@@ -356,13 +429,25 @@ def apply_subs(text, names, nums):
         di[0] += 1; return str(v)
     return re.sub(r"%d", d, re.sub(r"%s", s, str(text or "")))
 
+_last_pick = {}
+def pick_fresh(arr, key):
+    # like random.choice but avoids repeating the last value drawn for this key,
+    # so a shallow copy bank doesn't print the same headline twice in a row
+    arr = arr or [""]
+    if len(arr) == 1:
+        return arr[0]
+    choices = [x for x in arr if x != _last_pick.get(key)] or arr
+    v = random.choice(choices)
+    _last_pick[key] = v
+    return v
+
 def fire_verdict(ev, vid, names=None, nums=None):
     v = VBANK.get(vid)
     if not v:
         return
     names = names or []; nums = nums or []
-    hl = apply_subs(random.choice(v.get("headlines") or [""]), names, nums)
-    rc = apply_subs(random.choice(v.get("receipts") or [""]), names, nums)
+    hl = apply_subs(pick_fresh(v.get("headlines") or [""], vid + ":h"), names, nums)
+    rc = apply_subs(pick_fresh(v.get("receipts") or [""], vid + ":r"), names, nums)
     verdict_card(ev, vid, v.get("stamp", "VERDICT"), v.get("color", "#C8102E"), hl, rc, marks=bool(v.get("marks")))
 
 def emit_panel(ev, key):
@@ -405,14 +490,20 @@ def emit_verdicts(ev):
             fire_verdict(ev, "doublel")
         # definition spoof on a draw: 0-0 -> nil, both winless -> stalemate, else -> mid
         emit_panel(ev, "nil" if total == 0 else ("stalemate" if both_winless else "mid"))
-    # Comeback vs Bottled (need the halftime score)
+    # Comeback / Bottled / Let It Slip (need the halftime score).
+    # Bottled = led at the break then actually LOST. A lead surrendered to a DRAW
+    # is the softer "Let It Slip" (two points dropped), never "bottled".
     ht = ht_scores.get(ev["id"])
     if ht and ht[0] != ht[1]:
-        led_home = ht[0] > ht[1]; home_won = hs > as_; away_won = as_ > hs
-        if (led_home and away_won) or ((not led_home) and home_won):
-            fire_verdict(ev, "comeback", [an_ if away_won else hn])      # the team that was losing
-        elif (led_home and not home_won) or ((not led_home) and not away_won):
-            fire_verdict(ev, "bottled", [hn if led_home else an_])       # led, then drew
+        led_home = ht[0] > ht[1]
+        leader, chaser = (hn, an_) if led_home else (an_, hn)
+        leader_final = hs if led_home else as_
+        chaser_final = as_ if led_home else hs
+        if chaser_final > leader_final:        # the leader was overtaken and lost
+            fire_verdict(ev, "comeback", [chaser])   # celebrate the side that came from behind
+            fire_verdict(ev, "bottled", [leader])    # roast the side that bottled the lead
+        elif leader_final == chaser_final:     # lead surrendered to a draw
+            fire_verdict(ev, "letitslip", [leader])
     # Per-team stats: Allergic to the Net + Street Fight
     ts = team_stats(ev)
     if ts:
@@ -424,6 +515,50 @@ def emit_verdicts(ev):
         cards_total = sum((v["yel"] + v["red"]) for v in ts.values())
         if cards_total >= 8:
             fire_verdict(ev, "fight", [], [cards_total])
+
+# ---- Wikimedia Commons CC player portraits (the only free-commercial, zero-auth,
+# CORS-clean source that actually covers players). CC-BY/CC0/PD only; ShareAlike
+# and editorial-only sources (Getty/AP/FIFA) are deliberately never fetched.
+_BAD_TITLE = re.compile(r"logo|badge|crest|emblem|signature|coat[ _]of[ _]arms|\bflag\b|\bkit\b|stadium|\bmap\b", re.I)
+def commons_photo(name):
+    if not COMMONS_PHOTOS or not name:
+        return None
+    sur = norm_name(surname(name) or name)
+    try:
+        q = urllib.parse.urlencode({
+            "action": "query", "format": "json", "prop": "imageinfo",
+            "iiprop": "url|extmetadata|mime", "iiurlwidth": "1080",
+            "generator": "search", "gsrnamespace": "6", "gsrlimit": "10",
+            "gsrsearch": name + " footballer",
+        })
+        d = get_json("https://commons.wikimedia.org/w/api.php?" + q)
+    except Exception:
+        return None
+    for pg in ((d.get("query") or {}).get("pages") or {}).values():
+        title = pg.get("title") or ""
+        if _BAD_TITLE.search(title) or (sur and sur not in norm_name(title)):
+            continue
+        ii = (pg.get("imageinfo") or [{}])[0]
+        if not (ii.get("mime") or "").startswith("image/"):
+            continue
+        url = ii.get("thumburl") or ii.get("url") or ""
+        if "upload.wikimedia.org" not in url:   # CORS-clean host only (render.js toBlob must not taint)
+            continue
+        ext = ii.get("extmetadata") or {}
+        lic = ((ext.get("License") or {}).get("value") or "").lower()
+        lic_name = (ext.get("LicenseShortName") or {}).get("value") or ""
+        if "-sa" in lic:    # ShareAlike would force the derivative card's license; never use on a brand asset
+            continue
+        if not (any(k in lic for k in ("cc-by", "cc0", "cc-zero", "publicdomain")) or "public domain" in lic_name.lower()):
+            continue
+        artist = html.unescape(re.sub(r"<[^>]+>", "", (ext.get("Artist") or {}).get("value") or "")).strip()
+        artist = re.sub(r"\s+", " ", artist)
+        if len(artist) > 48 or artist.lower().startswith("http"):
+            artist = ""
+        if "cc-by" in lic and not artist:   # CC-BY needs a visible credit; no resolvable credit -> skip
+            continue
+        return {"url": url, "credit": ("PHOTO: " + " / ".join(x for x in [artist, lic_name or "Wikimedia Commons"] if x))[:64]}
+    return None
 
 def emit_player_stats(ev):
     # Always pick a player of the match for EVERY game (best by a weighted score),
@@ -469,6 +604,10 @@ def emit_player_stats(ev):
             picks.append(p); ids.add(p["id"])
     for p in picks[:4]:
         p["params"]["motm"] = (p["id"] == best["id"])
+        if p["id"] == best["id"] or p["goals"] >= 2:   # only the headline player(s) get a sourced portrait
+            ph = commons_photo(p["name"])
+            if ph:
+                p["params"]["photo"] = ph["url"]; p["params"]["credit"] = ph["credit"]
         add_card("%s:pstats:%s" % (ev["id"], p["id"]), "Player", "stats", p["params"],
                  p["name"] + " · " + p["tag"], ev["home"]["name"] + " v " + ev["away"]["name"])
 
@@ -607,6 +746,7 @@ def poll_loop():
                 trigger_deploy()
             poll_projections()
             scan_player_stats(evs)
+            _push_ready[0] = True   # boot backfill is done; pushes are live from here on
             live_n = sum(1 for e in evs if e["state"] == "in")
             soon = any(e["state"] == "pre" and (e["epoch"] - now) < 15 * 60000 for e in evs)
             delay = 30 if (live_n or soon) else 300
@@ -619,7 +759,7 @@ def poll_loop():
 # ---- HTTP --------------------------------------------------------------------
 def auth_ok(header):
     if not BASIC_PASS:
-        return True  # auth disabled (boot warns); set BASIC_PASS on Railway to enforce
+        return False  # fail closed; do_GET already 503s before reaching here when unset
     if not header or not header.startswith("Basic "):
         return False
     try:
@@ -642,7 +782,11 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         # health stays open (Railway / uptime checks); everything else needs auth
         if path == "/healthz":
-            return self._send(200, json.dumps({"ok": True, "cards": len(cards), "teams": len(TEAMS)}))
+            return self._send(200, json.dumps({"ok": True, "cards": len(cards), "teams": len(TEAMS),
+                                               "auth": bool(BASIC_PASS)}))
+        if not BASIC_PASS:
+            # fail CLOSED: an unset password locks the private tools, never exposes them
+            return self._send(503, "Service not configured (auth disabled)\n", "text/plain; charset=utf-8")
         if not auth_ok(self.headers.get("Authorization")):
             return self._send(401, "Authentication required\n", "text/plain; charset=utf-8",
                               {"WWW-Authenticate": 'Basic realm="Sportacle internal"'})
@@ -680,8 +824,10 @@ def main():
     threading.Thread(target=poll_loop, daemon=True).start()
     port = int(os.environ.get("PORT", "8080"))
     if not BASIC_PASS:
-        print("[boot] WARNING: BASIC_PASS not set -> auth DISABLED (set it on Railway to lock the tools)", flush=True)
+        print("[boot] WARNING: BASIC_PASS not set -> failing CLOSED (503 on all non-health routes; set it on Railway)", flush=True)
     print("[boot] deploy-on-full-time: %s" % ("ON" if GITHUB_TOKEN else "OFF (set GITHUB_TOKEN to enable)"), flush=True)
+    print("[boot] phone push: %s" % (("ON -> " + NTFY_SERVER + "/" + NTFY_TOPIC) if NTFY_TOPIC else "OFF (set NTFY_TOPIC to enable)"), flush=True)
+    print("[boot] commons portraits: %s" % ("ON" if COMMONS_PHOTOS else "OFF"), flush=True)
     print("[boot] teams=%d, static=%s, serving on :%d" % (len(TEAMS), STATIC_DIR, port), flush=True)
     ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()
 

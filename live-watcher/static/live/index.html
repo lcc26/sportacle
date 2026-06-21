@@ -33,8 +33,12 @@
   .card .meta{font-size:13px;color:var(--muted);padding:10px 14px 4px}
   .acts{display:flex;gap:10px;padding:12px 14px 16px}
   .acts button{flex:1;padding:13px;border:0;border-radius:12px;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer}
-  .save,.edit{background:#222a35;color:var(--ink)}
+  .save,.edit,.copy{background:#222a35;color:var(--ink)}
   .share{background:var(--amber);color:#15171C}
+  .reco{font-family:"Barlow Semi Condensed";font-weight:800;letter-spacing:1px;font-size:11px;color:#15171C;background:var(--amber);padding:2px 8px;border-radius:6px;margin-left:8px}
+  .cap{display:block;width:calc(100% - 28px);margin:8px 14px 0;background:#0E1116;border:1px solid var(--line);border-radius:10px;color:var(--ink);font-family:inherit;font-size:14px;line-height:1.45;padding:10px;resize:vertical;min-height:62px}
+  .card.handled{opacity:.5}
+  .card.flash{outline:2px solid var(--amber);outline-offset:3px;border-radius:18px}
   .empty{padding:64px 24px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:16px;font-size:15px}
   .setup{margin:14px 0;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
   .setup input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#0E1116;color:var(--ink);margin-top:8px;font-size:15px}
@@ -113,6 +117,7 @@
     var u=feedUrl(); if(!u) return;
     fetch(u,{cache:"no-store"}).then(function(r){return r.json();}).then(function(d){
       render(d.cards||[]);
+      focusHash();   // a push deep-link may target a card that only just arrived
       var liveish=(d.cards||[]).some(function(c){return c.kind==="Goal"||c.kind==="Half";});
       setStat((d.cards||[]).length+" cards · updated "+fmtAgo(d.updated||Date.now()), liveish);
     }).catch(function(){ setStat("Feed unreachable · retrying", false); });
@@ -130,30 +135,57 @@
     Array.prototype.forEach.call(feed.querySelectorAll("[data-ts]"),function(el){ el.textContent=fmtAgo(+el.getAttribute("data-ts")); });
   }
 
+  // ---- handled state + clipboard (so the deep-link lands on what's new, and copy
+  // brings the editable caption to the X composer) ----
+  function hKey(id){ return "sportacle-handled-"+id; }
+  function isHandled(id){ try{ return !!localStorage.getItem(hKey(id)); }catch(e){ return false; } }
+  function markHandled(id, el){ try{ localStorage.setItem(hKey(id),"1"); }catch(e){} if(el) el.classList.add("handled"); }
+  function copyText(t){
+    try{ if(navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t); }catch(e){}
+    var ta=document.createElement("textarea"); ta.value=t||""; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.focus(); ta.select(); try{ document.execCommand("copy"); }catch(e){} ta.remove();
+  }
+
   function tile(c){
-    var el=document.createElement("div"); el.className="card";
+    var el=document.createElement("div"); el.className="card"; el.id="card-"+c.id;
+    if(isHandled(c.id)) el.classList.add("handled");
     var k=(c.kind||"").toLowerCase().replace(/\s/g,"");
-    el.innerHTML='<div class="head"><span class="kind '+k+'">'+esc(c.kind)+'</span><span class="when" data-ts="'+c.ts+'">'+fmtAgo(c.ts)+'</span></div>';
+    var reco=c.recommended?'<span class="reco">POST THIS</span>':'';
+    el.innerHTML='<div class="head"><span class="kind '+k+'">'+esc(c.kind)+reco+'</span><span class="when" data-ts="'+c.ts+'">'+fmtAgo(c.ts)+'</span></div>';
     var cv=document.createElement("canvas"); el.appendChild(cv);
     var meta=document.createElement("div"); meta.className="meta"; meta.textContent=c.matchup||""; el.appendChild(meta);
+    // editable draft caption (Phase 1): assembled server-side, tweak before posting
+    var cap=document.createElement("textarea"); cap.className="cap"; cap.value=(c.caption||c.matchup||""); el.appendChild(cap);
     var acts=document.createElement("div"); acts.className="acts";
     var edit=document.createElement("button"); edit.className="edit"; edit.textContent="Edit";
+    var copy=document.createElement("button"); copy.className="copy"; copy.textContent="Copy";
     var save=document.createElement("button"); save.className="save"; save.textContent="Save";
     var share=document.createElement("button"); share.className="share"; share.textContent="Share";
-    acts.appendChild(edit); acts.appendChild(save); acts.appendChild(share); el.appendChild(acts);
-    edit.addEventListener("click",function(){ try{ localStorage.setItem("studio-edit", JSON.stringify({type:c.type, params:c.params})); }catch(e){} location.href="/studio/"; });
+    acts.appendChild(edit); acts.appendChild(copy); acts.appendChild(save); acts.appendChild(share); el.appendChild(acts);
+    edit.addEventListener("click",function(){ try{ localStorage.setItem("studio-edit", JSON.stringify({type:c.type, params:c.params, caption:cap.value})); }catch(e){} location.href="/studio/"; });
+    copy.addEventListener("click",function(){ copyText(cap.value); markHandled(c.id, el); copy.textContent="Copied"; setTimeout(function(){ copy.textContent="Copy"; },1200); });
     window.SportacleRender.renderTo(cv, c.type, c.params, 2);
     function blob(cb){ var big=document.createElement("canvas"); window.SportacleRender.renderTo(big,c.type,c.params,2).then(function(){ big.toBlob(cb,"image/png"); }); }
     function fname(){ return "sportacle-"+k+"-"+String(c.ts).slice(-6)+".png"; }
-    save.addEventListener("click",function(){ blob(function(b){ if(!b)return; var u=URL.createObjectURL(b),a=document.createElement("a"); a.href=u; a.download=fname(); document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(u);},1500); }); });
+    save.addEventListener("click",function(){ markHandled(c.id, el); blob(function(b){ if(!b)return; var u=URL.createObjectURL(b),a=document.createElement("a"); a.href=u; a.download=fname(); document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(u);},1500); }); });
     share.addEventListener("click",function(){
+      copyText(cap.value);   // X drops shared text alongside an image, so stage the caption on the clipboard to paste
+      markHandled(c.id, el);
       blob(function(b){ if(!b)return; var file=new File([b],fname(),{type:"image/png"});
-        if(navigator.canShare && navigator.canShare({files:[file]})){ navigator.share({files:[file],title:c.matchup||"Sportacle"}).catch(function(){}); }
+        if(navigator.canShare && navigator.canShare({files:[file]})){ navigator.share({files:[file],text:cap.value,title:c.matchup||"Sportacle"}).catch(function(){}); }
         else { var u=URL.createObjectURL(b),a=document.createElement("a"); a.href=u; a.download=fname(); a.click(); setTimeout(function(){URL.revokeObjectURL(u);},1500); }
       });
     });
     return el;
   }
+  // deep-link from the phone push: scroll to + flash the card named in #<id>
+  function focusHash(){
+    var h=location.hash.slice(1); if(!h) return;
+    try{ h=decodeURIComponent(h); }catch(e){}
+    var el=document.getElementById("card-"+h);
+    if(el){ el.scrollIntoView({block:"center"}); el.classList.add("flash"); setTimeout(function(){ el.classList.remove("flash"); },1600); }
+  }
+  window.addEventListener("hashchange", focusHash);
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];}); }
 })();
 </script>

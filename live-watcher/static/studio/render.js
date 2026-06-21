@@ -28,7 +28,7 @@
     var p = new Promise(function (res) {
       var img = new Image();
       img.onload = function () { res(img); };
-      img.onerror = function () { res(null); };
+      img.onerror = function () { try { console.warn('[render] flag failed to load: ' + code); } catch (e) {} res(null); };
       img.src = '/flags/' + code + '.png';
     });
     flagCache[code] = p;
@@ -511,11 +511,11 @@
     ctx.lineWidth = 5; ctx.strokeStyle = INK; rrect(ctx, x + 2.5, y + 2.5, pw - 5, ph - 5, 38); ctx.stroke();
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
     var midY = cy + 6, cur = x + padX;
-    ctx.font = font('700', 200, KH); ctx.fillStyle = p.acolor; ctx.fillText(d1, cur + w1 / 2, midY);
+    ctx.font = font('700', 200, KH); ctx.fillStyle = safeAccent(p.acolor); ctx.fillText(d1, cur + w1 / 2, midY);
     cur += w1 + gap;
     ctx.font = font('600', 120, KH); ctx.fillStyle = 'rgba(17,22,31,.32)'; ctx.fillText('-', cur + dashW / 2, midY - 6);
     cur += dashW + gap;
-    ctx.font = font('700', 200, KH); ctx.fillStyle = p.bcolor; ctx.fillText(d2, cur + w2 / 2, midY);
+    ctx.font = font('700', 200, KH); ctx.fillStyle = safeAccent(p.bcolor); ctx.fillText(d2, cur + w2 / 2, midY);
   }
   function drawBrand(ctx, accent) {
     // wordmark pill: "SPORT" ink + "ACLE" accent, Khand 700 46 ls3
@@ -528,7 +528,7 @@
     ctx.fillStyle = 'rgba(255,255,255,.94)'; rrect(ctx, x, y, pw, h, h / 2); ctx.fill(); ctx.restore();
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillStyle = INK; ctx.fillText(t1, x + padX, cy + 1);
-    ctx.fillStyle = accent; ctx.fillText(t2, x + padX + w1, cy + 1);
+    ctx.fillStyle = safeAccent(accent); ctx.fillText(t2, x + padX + w1, cy + 1);
     ls(ctx, 0);
     // handle pill below
     pill(ctx, 540, W - 48 + 18, '@THESPORTACLE · GOSPORTACLE.COM', {
@@ -642,6 +642,13 @@
   function hexRgb(h) { h = String(h || '').replace('#', ''); if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2]; return [parseInt(h.slice(0, 2), 16) || 0, parseInt(h.slice(2, 4), 16) || 0, parseInt(h.slice(4, 6), 16) || 0]; }
   function lum(h) { var c = hexRgb(h); return (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255; }
   function shade(h, f) { var c = hexRgb(h); function cl(v) { return Math.max(0, Math.min(255, Math.round(v))); } return 'rgb(' + cl(c[0] * f) + ',' + cl(c[1] * f) + ',' + cl(c[2] * f) + ')'; }
+  // achromatic near-black team colors (Germany #2B2B2B, NZ #1B1B1B) vanish as a foreground
+  // fill on near-white plates; lighten them to a readable slate, leaving saturated darks alone.
+  function safeAccent(h) {
+    var c = hexRgb(h), mx = Math.max(c[0], c[1], c[2]), mn = Math.min(c[0], c[1], c[2]);
+    if (lum(h) < 0.20 && (mx - mn) < 40) return shade(h, 120 / Math.max(mx, 1));
+    return h;
+  }
   function contrastInk(h) { return lum(h) > 0.62 ? '#11161F' : '#ffffff'; }
   function hexA(h, a) { var c = hexRgb(h); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
   // brand cues shared with the cover/share card: the conic orb + the FIFA-color ribbon
@@ -690,8 +697,9 @@
   }
 
   // ---- STATS (post-match player card) ----
-  function renderStats(ctx, p) {
+  function renderStats(ctx, p, photo) {
     var c1 = p.color || '#1E9B4B', c2 = p.color2 || shade(c1, 0.55);
+    var hasPhoto = !!(photo && photo.naturalWidth);
     // background: dark with a team-color glow
     ctx.fillStyle = '#0d1016'; ctx.fillRect(0, 0, W, W);
     var rg = ctx.createRadialGradient(W / 2, 300, 0, W / 2, 300, 760);
@@ -711,8 +719,22 @@
       });
       top = 210;
     }
-    // jersey hero: chosen kit, else team color
-    drawJersey(ctx, 540, top + 230, 1.15, p.kit1 || c1, p.kit2 || c2, p.jersey, p.player);
+    // hero: a sourced player portrait (B/R-style, CC-licensed) when one exists,
+    // else the stylized team-color jersey. Photo is framed on a team-color block.
+    if (hasPhoto) {
+      var pw2 = 452, ph2 = 452, px2 = 540 - pw2 / 2, py2 = top + 12;
+      ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 16;
+      rrect(ctx, px2, py2, pw2, ph2, 28); ctx.fillStyle = shade(c1, 0.5); ctx.fill(); ctx.restore();
+      ctx.save(); rrect(ctx, px2, py2, pw2, ph2, 28); ctx.clip();
+      cover(ctx, photo, px2, py2, pw2, ph2, 0.5, 0.18);
+      var fg = ctx.createLinearGradient(0, py2 + ph2 - 150, 0, py2 + ph2);
+      fg.addColorStop(0, 'rgba(13,16,22,0)'); fg.addColorStop(1, hexA(shade(c1, 0.42), .78));
+      ctx.fillStyle = fg; ctx.fillRect(px2, py2 + ph2 - 150, pw2, 150);
+      ctx.restore();
+      ctx.lineWidth = 6; ctx.strokeStyle = hexA(c1, .9); rrect(ctx, px2 + 3, py2 + 3, pw2 - 6, ph2 - 6, 26); ctx.stroke();
+    } else {
+      drawJersey(ctx, 540, top + 230, 1.15, p.kit1 || c1, p.kit2 || c2, p.jersey, p.player);
+    }
     // player name
     var name = String(p.player || 'Player').toUpperCase();
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#fff';
@@ -723,6 +745,11 @@
     if (p.position) { ctx.font = font('700', 22, BR); ls(ctx, 4); ctx.fillStyle = 'rgba(255,255,255,.66)'; ctx.fillText(p.position.toUpperCase(), 540, ny + 40); ls(ctx, 0); }
     // stat blocks
     drawStats(ctx, p.stats || [], ny + 110, c1);
+    // photo credit, burned into the image (re-shares strip caption text, so attribution must live here)
+    if (hasPhoto && p.credit) {
+      ctx.font = font('700', 15, BR); ls(ctx, 1); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fillText(String(p.credit).toUpperCase().slice(0, 54), 64, W - 92); ls(ctx, 0);
+    }
     // brand footer
     ctx.font = font('700', 38, KH); ls(ctx, 3); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     var t1 = 'SPORT', t2 = 'ACLE', bw1 = ctx.measureText(t1).width, bw2 = ctx.measureText(t2).width, bx = 540 - (bw1 + bw2) / 2, by = W - 56;
@@ -836,7 +863,6 @@
     ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'; ctx.fillStyle = INKB;
     var hs = fitFont(ctx, String(p.team || '').toUpperCase(), '700', 70, KH, 600, 0); ctx.font = font('700', hs, KH); ctx.fillText(String(p.team || '').toUpperCase(), 214, 222);
     ctx.font = font('700', 26, BR); ls(ctx, 1); ctx.fillStyle = RED; ctx.fillText(String(p.question || 'Most likely R32 opponent').toUpperCase(), 216, 262); ls(ctx, 0);
-    if (p.survival) { var sw = (function () { ctx.font = font('800', 24, BR); return ctx.measureText(String(p.survival).toUpperCase()).width; })(); pill(ctx, 1016 - (sw + 48) / 2, 196, String(p.survival).toUpperCase(), { font: font('800', 24, BR), lsp: 1, padX: 24, h: 50, bg: hexA('#1E9B4B', .14), color: '#1E9B4B' }); }
     ctx.strokeStyle = hexA(INKB, .15); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(64, 322); ctx.lineTo(1016, 322); ctx.stroke();
     var rows = (p.rows || []).slice(0, 6), n = rows.length, maxP = 0; rows.forEach(function (r) { if (+r.prob > maxP) maxP = +r.prob; });
     var top = 360, rowH = n ? Math.min(96, (W - top - 140) / n) : 96;
@@ -973,7 +999,7 @@
   // ---- PERMUTATIONS (whole-group qualification matrix) ----
   function renderPermutations(ctx, p, flags) {
     var CREAM = '#F4F2EB', INKB = '#14171C', MUTE = '#8A93A0';
-    var STATUS = { in: ['#1E9B4B', 'THROUGH'], win: ['#1E9B4B', 'WIN AND IN'], draw: ['#FFC400', 'DRAW MIGHT DO'], mustwin: ['#ED2939', 'WIN OR HOME'], out: ['#14171C', 'ELIMINATED'] };
+    var STATUS = { in: ['#1E9B4B', 'THROUGH'], win: ['#1E9B4B', 'WIN AND IN'], third: ['#C9A227', 'BEST THIRD'], draw: ['#FFC400', 'DRAW MIGHT DO'], mustwin: ['#ED2939', 'WIN OR HOME'], out: ['#14171C', 'ELIMINATED'] };
     ctx.fillStyle = CREAM; ctx.fillRect(0, 0, W, W); fifaRibbon(ctx, 0, 10);
     creamHead(ctx, 86, 96, 24);
     ctx.fillStyle = INKB; ctx.font = font('700', 54, KH); ls(ctx, 1); ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(String(p.group || 'GROUP').toUpperCase(), 1016, 96); ls(ctx, 0);
@@ -990,12 +1016,6 @@
       pill(ctx, 1016 - tw / 2, cy - 32, tag, { font: font('800', 21, BR), lsp: 1, padX: 18, h: 42, bg: col, color: contrastInk(col) });
       if (r.line) { ctx.font = font('600', 22, BR); ctx.fillStyle = hexA(INKB, .68); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; var lns = wrapLines(ctx, String(r.line), 470); lns.slice(0, 2).forEach(function (ln, k) { ctx.fillText(ln, 1016, cy + 14 + k * 27); }); }
     });
-    var sy = top + 4 * rowH + 38;
-    if (rows.some(function (r) { return r.surv != null; })) {
-      ctx.font = font('800', 20, BR); ls(ctx, 3); ctx.fillStyle = hexA(INKB, .5); ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('SURVIVAL', 64, sy); ls(ctx, 0);
-      var x = 222;
-      rows.forEach(function (r) { if (r.surv == null) return; var lbl = String(r.name || '').toUpperCase() + ' ' + r.surv; ctx.font = font('800', 22, BR); var w = ctx.measureText(lbl).width + 32, c = r.color || MUTE; pill(ctx, x + w / 2, sy, lbl, { font: font('800', 22, BR), lsp: 0, padX: 16, h: 44, bg: c, color: contrastInk(c) }); x += w + 12; });
-    }
     creamFooter(ctx, p.footnote || 'gosportacle.com');
   }
   // ---- HOUSE LINE (engine-as-antagonist taunt + reply bait) ----
@@ -1047,8 +1067,10 @@
     rows.forEach(function (r, i) {
       var cy = rowTop + i * rowH + rowH / 2;
       if (r.live) { ctx.fillStyle = 'rgba(200,16,46,.13)'; rrect(ctx, 40, cy - rowH / 2 + 6, W - 80, rowH - 12, 14); ctx.fill(); }
-      if (i < 2) { ctx.fillStyle = '#1E9B4B'; rrect(ctx, 42, cy - rowH / 2 + 12, 6, rowH - 24, 3); ctx.fill(); }
-      ctx.font = font('700', 46, KH); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = i < 2 ? '#37C46A' : 'rgba(255,255,255,.5)';
+      // top 2 advance (green); a 3rd-placed team holding a best-third spot advances too (gold)
+      var spine = i < 2 ? '#1E9B4B' : (r.adv ? '#C9A227' : null);
+      if (spine) { ctx.fillStyle = spine; rrect(ctx, 42, cy - rowH / 2 + 12, 6, rowH - 24, 3); ctx.fill(); }
+      ctx.font = font('700', 46, KH); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = i < 2 ? '#37C46A' : (r.adv ? '#E3B83C' : 'rgba(255,255,255,.5)');
       ctx.fillText(String(i + 1), 88, cy);
       var fw = 64, fh = 43; drawMiniFlag(ctx, flags[r.code], 130, cy - fh / 2, fw, fh);
       ctx.font = font('700', 41, KH); ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
@@ -1062,7 +1084,7 @@
     ctx.font = font('700', 36, KH); ls(ctx, 3); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     var t1 = 'SPORT', t2 = 'ACLE', bw1 = ctx.measureText(t1).width, bw2 = ctx.measureText(t2).width, fx = 540 - (bw1 + bw2) / 2, fy = W - 52;
     ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.fillText(t1, fx, fy); ctx.fillStyle = accent; ctx.fillText(t2, fx + bw1, fy);
-    ls(ctx, 0); ctx.font = font('700', 17, BR); ls(ctx, 2); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillText(String(p.footnote || 'WORLD CUP 2026 · TOP 2 ADVANCE').toUpperCase(), fx + bw1 + bw2 + 16, fy + 1); ls(ctx, 0);
+    ls(ctx, 0); ctx.font = font('700', 17, BR); ls(ctx, 2); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillText(String(p.footnote || 'WORLD CUP 2026 · TOP 2 + BEST THIRDS ADVANCE').toUpperCase(), fx + bw1 + bw2 + 16, fy + 1); ls(ctx, 0);
   }
 
   // ---- public entry ----
@@ -1072,7 +1094,9 @@
     var ctx = canvas.getContext('2d');
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     return ensureFonts().then(function () {
-      if (type === 'stats') { renderStats(ctx, p); return; }
+      if (type === 'stats') {
+        return (p.photo ? loadImg(p.photo) : Promise.resolve(null)).then(function (ph) { renderStats(ctx, p, ph); });
+      }
       if (type === 'infographic' || type === 'standings' || type === 'cooked') {
         var codes = (p.rows || []).map(function (r) { return r.code; });
         return Promise.all(codes.map(loadFlag)).then(function (imgs) {

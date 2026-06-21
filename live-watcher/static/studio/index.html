@@ -402,7 +402,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       setSel("mteamA","Brazil"); setSel("mteamB","Argentina");
       setSel("mdA","United States"); setSel("mdB","Australia"); document.getElementById("mdtag").value="MATCHDAY"; document.getElementById("mdstakes").value="Win and the group is theirs"; document.getElementById("mtop").value="When the group stage draw comes out"; document.getElementById("mbottom").value="And your team gets the easy one"; syncMacroFields();
       setSel("tteam","Brazil"); document.getElementById("tlabel").value="PROJECTION ALERT"; document.getElementById("thead").value="Pick a team to load its live projection"; document.getElementById("tticker").value="The headline and odds fill in from the team's current projection";
-      setSel("qteam","Germany"); document.getElementById("qquote").value="We treated it like a friendly."; document.getElementById("qattr").value="Germany"; document.getElementById("qcontext").value="Sportacle still has them 68% to win the group.";
+      setSel("qteam","Germany"); document.getElementById("qquote").value="The table doesn't lie."; document.getElementById("qattr").value="THE GROUP STAGE"; document.getElementById("qcontext").value="";
       setSel("home","England"); setSel("away","Croatia");
       setSel("gteam","England"); setSel("gvs","Croatia"); setSel("steam","England");
       setSel("rteamA","South Africa"); setSel("rteamB","Czechia");
@@ -933,6 +933,21 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
   // ---- Permutations: whole-group road to the R32, read from the live table ----
   // THROUGH / ELIMINATED are only asserted when mathematically locked (top-2 advance,
   // 3 group games). Everyone else is framed as in-contention. Never a false claim.
+  // WC 2026 (48 teams / 12 groups): the top 2 of each group AND the 8 best
+  // third-placed teams reach the Round of 32. Rank every group's 3rd-placed side
+  // by pts/GD/GF and mark the top 8 so no qualifying team is ever called out.
+  function computeBestThird(d){
+    var thirds=[];
+    (d.children||[]).forEach(function(g){
+      var ents=((g.standings||{}).entries||[]).map(function(en){ var nm=(en.team||{}).displayName||"";
+        return {key:canon(nm), Pts:numS(en,"points"), GD:numS(en,"pointDifferential"), GF:numS(en,"pointsFor")}; });
+      ents.sort(function(a,b){ return (b.Pts-a.Pts)||(b.GD-a.GD)||(b.GF-a.GF); });
+      if(ents.length>=3) thirds.push(ents[2]);
+    });
+    thirds.sort(function(a,b){ return (b.Pts-a.Pts)||(b.GD-a.GD)||(b.GF-a.GF); });
+    var set={}; thirds.slice(0,8).forEach(function(t){ set[t.key]=true; });
+    return {set:set, n:thirds.length};
+  }
   var permStand=null;
   function drawPermutations(){
     var gname=opt("pmgroup").value; if(!gname) return Promise.resolve();
@@ -944,23 +959,24 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
       var anyPlayed=ents.some(function(t){return t.P>0;});
       ents.forEach(function(t){ t.left=Math.max(0,3-t.P); t.max=t.Pts+3*t.left; });
       var pts2 = ents.length>=2 ? ents[1].Pts : 0;
+      var bt = computeBestThird(d);   // 2026: top 2 + the 8 best third-placed teams advance
       function statusFor(t,i){
-        var aboveCeil=ents.filter(function(o){return o!==t && o.Pts>t.max;}).length;   // already out of my reach
-        var canPass=ents.filter(function(o){return o!==t && o.max>t.Pts;}).length;     // could still climb past me
-        if(t.left===0) return i<=1?"in":"out";
-        if(aboveCeil>=2) return "out";   // two teams locked above me -> cannot make top two
-        if(canPass<=1) return "in";      // at most one team can pass me -> guaranteed top two
-        if(i<=1) return "win";
-        if(t.left<=1) return (pts2-t.Pts)>=1 ? "mustwin" : "draw";   // final matchday: must win to climb
-        return "draw";                   // games still in hand -> in the hunt
+        var canPass=ents.filter(function(o){return o!==t && o.max>=t.Pts;}).length;   // could reach my points (>= for tiebreak safety)
+        var inThird=!!bt.set[canon(t.name)];
+        if(t.left===0){ if(i<=1) return "in"; return (i===2 && inThird) ? "third" : "out"; }
+        if(i<=1) return canPass<=1 ? "in" : "win";   // top two clinched only if at most one team can reach me
+        // 3rd/4th with games to play: a best-third spot still advances, so NEVER "eliminated" yet
+        if(inThird) return "third";
+        return t.left<=1 ? "mustwin" : "draw";
       }
-      var TAG={in:"THROUGH", win:"POLE POSITION", draw:"IN THE HUNT", mustwin:"WIN OR HOME", out:"ELIMINATED"};
+      var TAG={in:"THROUGH", win:"POLE POSITION", third:"BEST THIRD", draw:"IN THE HUNT", mustwin:"WIN OR HOME", out:"ELIMINATED"};
       var rows=ents.slice(0,4).map(function(t,i){ var st=statusFor(t,i), gap=pts2-t.Pts, line;
         if(st==="in") line = t.left===0 ? "Through to the knockouts." : "Mathematically safe. Booked for the Round of 32.";
-        else if(st==="out") line = t.left===0 ? "Out. The group stage ends here." : "Cannot reach the top two. Playing for pride.";
+        else if(st==="third") line = t.left===0 ? "Through as one of the eight best third-placed teams." : "In a best third-placed spot for now. Hang on.";
+        else if(st==="out") line = t.left===0 ? "Out. The group stage ends here." : "On the brink. Needs the results to swing.";
         else if(st==="win") line = "Holding a top-two spot with "+t.left+" to play.";
-        else if(st==="mustwin") line = "Win the finale or it is over. "+gap+" point"+(gap===1?"":"s")+" back of the cut.";
-        else line = (gap<=0?"Right on the cut line":(gap+" point"+(gap===1?"":"s")+" back of the cut"))+" with "+t.left+" to play.";
+        else if(st==="mustwin") line = "Win the finale or lean on the best-third math. "+(gap>0?gap+" point"+(gap===1?"":"s")+" back of second.":"Level with second.");
+        else line = (gap<=0?"Right on the cut line":(gap+" point"+(gap===1?"":"s")+" back of second"))+" with "+t.left+" to play.";
         return {code:t.code, name:t.name, color:t.color, pts:t.Pts+(t.Pts===1?" PT":" PTS"), status:st, tag:TAG[st], line:line}; });
       if(!anyPlayed) rows.forEach(function(r){ r.status="draw"; r.tag="ALL TO PLAY"; r.line="The group stage has not kicked off."; });
       var params={group:gname, kicker:val("pmkick")||"PATH TO THE ROUND OF 32", footnote:val("pmfoot")||"gosportacle.com", rows:rows};
@@ -1001,6 +1017,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
         return {code:teamCode(name),name:name,P:s.P,W:s.W,D:s.D,L:s.L,GD:s.GD,Pts:s.Pts,GF:s.GF,live:isLive};
       });
       rows.sort(function(a,b){return (b.Pts-a.Pts)||(b.GD-a.GD)||(b.GF-a.GF);});
+      var bt=computeBestThird(res[0]); if(rows[2]) rows[2].adv=!!bt.set[canon(rows[2].name)];   // mark a qualifying 3rd
       lastStandParams={group:gname,live:groupLive,rows:rows,title:val("stitle")||"",footnote:val("sfoot")||""};
       return window.SportacleRender.renderTo(cv,"standings",lastStandParams,2).then(function(){ if(!busy) statusEl.textContent=gname+(groupLive?" · LIVE":""); });
     }).catch(function(e){ statusEl.textContent="Standings load failed: "+e; });
@@ -1186,10 +1203,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     document.getElementById("verdict").addEventListener("change", function(){ fillVerdictCopy(); update(); });
     document.getElementById("roastReset").addEventListener("click", function(){ fillVerdictCopy(); update(); });
     document.getElementById("dpreset").addEventListener("change", function(){ fillDefCopy(); update(); });
-    document.getElementById("oteam").addEventListener("change", drawOddsboard);
     document.getElementById("mdLoad").addEventListener("click", loadMatchdayFixture);
-    document.getElementById("mdA").addEventListener("change", loadMatchdayFixture);
-    document.getElementById("mdB").addEventListener("change", loadMatchdayFixture);
     document.getElementById("tteam").addEventListener("change", fillTickerCopy);
     document.getElementById("hlLoad").addEventListener("click", loadHouseLine);
     document.getElementById("hlteam").addEventListener("change", loadHouseLine);
