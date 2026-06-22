@@ -520,26 +520,44 @@ def emit_verdicts(ev):
 # CORS-clean source that actually covers players). CC-BY/CC0/PD only; ShareAlike
 # and editorial-only sources (Getty/AP/FIFA) are deliberately never fetched.
 _BAD_TITLE = re.compile(r"logo|badge|crest|emblem|signature|coat[ _]of[ _]arms|\bflag\b|\bkit\b|stadium|\bmap\b", re.I)
+def _name_match(title_norm, name):
+    # tolerant: handles "Vinicius Jr" vs "Vinicius Junior", mononyms (Pedri), and
+    # first+last present, so Commons file titles match the ESPN display name
+    toks = [norm_name(t) for t in str(name).split()]
+    toks = [t for t in toks if len(t) >= 3]
+    if not toks:
+        return False
+    t2 = title_norm.replace("junior", "jr")
+    full = "".join(toks).replace("junior", "jr")
+    if full and full in t2:
+        return True
+    last = toks[-1]
+    if last in ("junior", "jr") and len(toks) >= 2:
+        last = toks[-2]          # "Vinicius Junior" -> match on "vinicius", not "jr"
+    last = last.replace("junior", "jr")
+    if len(last) >= 4 and last in t2:
+        return True
+    return len(toks) >= 2 and toks[0] in title_norm and any(len(t) >= 3 and t in title_norm for t in toks[1:])
 def commons_photo(name):
     if not COMMONS_PHOTOS or not name:
         return None
-    sur = norm_name(surname(name) or name)
     try:
         q = urllib.parse.urlencode({
             "action": "query", "format": "json", "prop": "imageinfo",
             "iiprop": "url|extmetadata|mime", "iiurlwidth": "1080",
-            "generator": "search", "gsrnamespace": "6", "gsrlimit": "10",
+            "generator": "search", "gsrnamespace": "6", "gsrlimit": "12",
             "gsrsearch": name + " footballer",
         })
         d = get_json("https://commons.wikimedia.org/w/api.php?" + q)
     except Exception:
         return None
-    for pg in ((d.get("query") or {}).get("pages") or {}).values():
+    for pg in sorted(((d.get("query") or {}).get("pages") or {}).values(), key=lambda x: x.get("index", 99)):
         title = pg.get("title") or ""
-        if _BAD_TITLE.search(title) or (sur and sur not in norm_name(title)):
+        if _BAD_TITLE.search(title) or not _name_match(norm_name(title), name):
             continue
         ii = (pg.get("imageinfo") or [{}])[0]
-        if not (ii.get("mime") or "").startswith("image/"):
+        mime = ii.get("mime") or ""
+        if not mime.startswith("image/") or "svg" in mime:
             continue
         url = ii.get("thumburl") or ii.get("url") or ""
         if "upload.wikimedia.org" not in url:   # CORS-clean host only (render.js toBlob must not taint)
@@ -547,17 +565,18 @@ def commons_photo(name):
         ext = ii.get("extmetadata") or {}
         lic = ((ext.get("License") or {}).get("value") or "").lower()
         lic_name = (ext.get("LicenseShortName") or {}).get("value") or ""
-        if "-sa" in lic:    # ShareAlike would force the derivative card's license; never use on a brand asset
+        if "-nc" in lic or "-nd" in lic:   # non-commercial / no-derivatives genuinely bar our use
             continue
         if not (any(k in lic for k in ("cc-by", "cc0", "cc-zero", "publicdomain")) or "public domain" in lic_name.lower()):
             continue
-        artist = html.unescape(re.sub(r"<[^>]+>", "", (ext.get("Artist") or {}).get("value") or "")).strip()
-        artist = re.sub(r"\s+", " ", artist)
-        if len(artist) > 48 or artist.lower().startswith("http"):
-            artist = ""
-        if "cc-by" in lic and not artist:   # CC-BY needs a visible credit; no resolvable credit -> skip
+        artist = html.unescape(re.sub(r"<[^>]+>", "", (ext.get("Artist") or {}).get("value") or ""))
+        artist = re.sub(r"\[\d+\]", "", artist)            # drop wiki citation markers like [1]
+        artist = re.sub(r"\s+", " ", artist).strip(" ,;|")
+        if len(artist) > 48 or artist.lower().startswith("http") or not re.search(r"[A-Za-z]", artist) or re.search(r"unknown", artist, re.I):
+            artist = ""                                    # junk/empty/unknown credit -> treat as none
+        if "cc-by" in lic and not artist:   # CC-BY / CC-BY-SA need a visible credit; none resolvable -> skip
             continue
-        return {"url": url, "credit": ("PHOTO: " + " / ".join(x for x in [artist, lic_name or "Wikimedia Commons"] if x))[:64]}
+        return {"url": url, "credit": ("PHOTO: " + " / ".join(x for x in [artist, lic_name or "Wikimedia Commons"] if x))[:72]}
     return None
 
 def emit_player_stats(ev):
