@@ -579,6 +579,42 @@ def commons_photo(name):
         return {"url": url, "credit": ("PHOTO: " + " / ".join(x for x in [artist, lic_name or "Wikimedia Commons"] if x))[:72]}
     return None
 
+# Real autograph from Commons (stars only: Ronaldo, Neymar, Modric, etc. have one).
+# svg/png source so the rasterized PNG is transparent and recolors cleanly to cream.
+def commons_signature(name):
+    if not name:
+        return None
+    toks = [t for t in str(name).split() if len(norm_name(t)) >= 3]
+    last = norm_name(toks[-1]) if toks else ""
+    try:
+        q = urllib.parse.urlencode({
+            "action": "query", "format": "json", "prop": "imageinfo",
+            "iiprop": "url|extmetadata|mime", "iiurlwidth": "1000",
+            "generator": "search", "gsrnamespace": "6", "gsrlimit": "8",
+            "gsrsearch": name + " signature",
+        })
+        d = get_json("https://commons.wikimedia.org/w/api.php?" + q)
+    except Exception:
+        return None
+    for pg in sorted(((d.get("query") or {}).get("pages") or {}).values(), key=lambda x: x.get("index", 99)):
+        title = pg.get("title") or ""
+        tl = title.lower()
+        if "signature" not in tl or "logo" in tl:
+            continue
+        if last and last not in norm_name(title):
+            continue
+        ii = (pg.get("imageinfo") or [{}])[0]
+        if (ii.get("mime") or "") not in ("image/svg+xml", "image/png"):   # transparent sources only
+            continue
+        url = ii.get("thumburl") or ""
+        if "upload.wikimedia.org" not in url or not url.lower().endswith(".png"):
+            continue
+        lic = (((ii.get("extmetadata") or {}).get("License") or {}).get("value") or "").lower()
+        if "-nc" in lic or "-nd" in lic:
+            continue
+        return url
+    return None
+
 def emit_player_stats(ev):
     # Always pick a player of the match for EVERY game (best by a weighted score),
     # plus any extra 2+ goal scorers. The single best gets the MOTM ribbon.
@@ -627,6 +663,10 @@ def emit_player_stats(ev):
             ph = commons_photo(p["name"])
             if ph:
                 p["params"]["photo"] = ph["url"]; p["params"]["credit"] = ph["credit"]
+            if p["id"] == best["id"]:                   # the hero also gets a real autograph if a star has one
+                sg = commons_signature(p["name"])
+                if sg:
+                    p["params"]["signature"] = sg
         add_card("%s:pstats:%s" % (ev["id"], p["id"]), "Player", "stats", p["params"],
                  p["name"] + " · " + p["tag"], ev["home"]["name"] + " v " + ev["away"]["name"])
 

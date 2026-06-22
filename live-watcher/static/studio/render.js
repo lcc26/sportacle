@@ -159,7 +159,7 @@
       font: font('800', 30, BR), lsp: 9, padX: 30, h: 52, bg: p.lc || '#fff', color: INK,
       shadow: { c: 'rgba(0,0,0,.3)', b: 30, oy: 12 }
     });
-    drawScore(ctx, p);
+    if (p.noScore) drawMedallion(ctx, 540, 560); else drawScore(ctx, p);
     if (p.note) pill(ctx, 540, W - 188, p.note.toUpperCase(), {
       font: font('800', 26, BR), lsp: 6, padX: 28, h: 46, bg: 'rgba(255,255,255,.94)', color: INK,
       shadow: { c: 'rgba(0,0,0,.22)', b: 30, oy: 12 }
@@ -650,6 +650,14 @@
     return h;
   }
   function contrastInk(h) { return lum(h) > 0.62 ? '#11161F' : '#ffffff'; }
+  // recolor a transparent line-art image (an autograph) to a solid color via source-in
+  function tintImg(img, color) {
+    var t = document.createElement('canvas');
+    t.width = img.naturalWidth || 800; t.height = img.naturalHeight || 240;
+    var c = t.getContext('2d'); c.drawImage(img, 0, 0, t.width, t.height);
+    c.globalCompositeOperation = 'source-in'; c.fillStyle = color; c.fillRect(0, 0, t.width, t.height);
+    return t;
+  }
   function hexA(h, a) { var c = hexRgb(h); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
   // brand cues shared with the cover/share card: the conic orb + the FIFA-color ribbon
   function orb(ctx, cx, cy, r) {
@@ -697,7 +705,7 @@
   }
 
   // ---- STATS (post-match player card) ----
-  function renderStats(ctx, p, photo) {
+  function renderStats(ctx, p, photo, signature) {
     var c1 = p.color || '#1E9B4B', c2 = p.color2 || shade(c1, 0.55);
     var hasPhoto = !!(photo && photo.naturalWidth);
     // background: dark with a team-color glow
@@ -732,6 +740,13 @@
       ctx.fillStyle = fg; ctx.fillRect(px2, py2 + ph2 - 150, pw2, 150);
       ctx.restore();
       ctx.lineWidth = 6; ctx.strokeStyle = hexA(c1, .9); rrect(ctx, px2 + 3, py2 + 3, pw2 - 6, ph2 - 6, 26); ctx.stroke();
+      // real autograph (stars only), recolored cream, laid across the lower photo
+      if (signature && signature.naturalWidth) {
+        var sg = tintImg(signature, '#F4F2EB'), sgw = 332, sgh = sgw * (sg.height / sg.width);
+        if (sgh > 124) { sgh = 124; sgw = sgh * (sg.width / sg.height); }
+        ctx.save(); ctx.globalAlpha = 0.95; ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 2;
+        ctx.drawImage(sg, 540 - sgw / 2, py2 + ph2 - sgh - 24, sgw, sgh); ctx.restore();
+      }
     } else {
       drawJersey(ctx, 540, top + 230, 1.15, p.kit1 || c1, p.kit2 || c2, p.jersey, p.player);
     }
@@ -1087,6 +1102,91 @@
     ls(ctx, 0); ctx.font = font('700', 17, BR); ls(ctx, 2); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillText(String(p.footnote || 'WORLD CUP 2026 · TOP 2 + BEST THIRDS ADVANCE').toUpperCase(), fx + bw1 + bw2 + 16, fy + 1); ls(ctx, 0);
   }
 
+  // ---- B/R HERO (custom giant headline over a player photo + optional opponents) ----
+  function renderBRHero(ctx, p, F) {
+    var col = p.acolor || '#0A3478', hasP = !!(F.photo && F.photo.naturalWidth);
+    ctx.fillStyle = '#0c0e12'; ctx.fillRect(0, 0, W, W);
+    if (hasP) cover(ctx, F.photo, 0, 0, W, W, 0.5, 0.2);
+    else if (F.a) cover(ctx, F.a, 0, 0, W, W, 0.5, 0.4);
+    ctx.save(); ctx.globalAlpha = hasP ? 0.12 : 0.42; ctx.fillStyle = col; ctx.fillRect(0, 0, W, W); ctx.restore();
+    var sc = ctx.createLinearGradient(0, 0, 0, W);
+    sc.addColorStop(0, 'rgba(8,10,14,.58)'); sc.addColorStop(.36, 'rgba(8,10,14,.04)'); sc.addColorStop(.62, 'rgba(8,10,14,.42)'); sc.addColorStop(1, 'rgba(8,10,14,.95)');
+    ctx.fillStyle = sc; ctx.fillRect(0, 0, W, W);
+    fifaRibbon(ctx, 0, 8);
+    if (F.a) { ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 16; drawMiniFlag(ctx, F.a, 60, 156, 150, 100); ctx.restore(); }
+    if (F.b) { ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 16; drawMiniFlag(ctx, F.b, W - 210, 156, 150, 100); ctx.restore(); }
+    orb(ctx, 84, 92, 22); ctx.font = font('700', 30, KH); ls(ctx, 1); ctx.fillStyle = '#F4F2EB'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('SPORTACLE', 118, 93); ls(ctx, 0);
+    if (p.score) pill(ctx, 540, 110, String(p.score), { font: font('700', 40, KH), lsp: 1, padX: 22, h: 60, bg: 'rgba(255,255,255,.94)', color: INK });
+    var head = String(p.headline || '').toUpperCase(), hy = W - 150;
+    if (F.signature && F.signature.naturalWidth) {
+      var sg = tintImg(F.signature, '#F4F2EB'), sgw = 300, sgh = sgw * (sg.height / sg.width);
+      if (sgh > 110) { sgh = 110; sgw = sgh * (sg.width / sg.height); }
+      ctx.save(); ctx.globalAlpha = 0.95; ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 8;
+      ctx.drawImage(sg, 540 - sgw / 2, hy - 250 - sgh, sgw, sgh); ctx.restore();
+    }
+    var hs = 250, fam = '400 ' + hs + 'px Anton, Impact, "Arial Narrow", sans-serif';
+    ctx.font = fam; while (ctx.measureText(head).width > W - 80 && hs > 60) { hs -= 8; ctx.font = '400 ' + hs + 'px Anton, Impact, "Arial Narrow", sans-serif'; }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 6; ctx.fillStyle = '#fff'; ctx.fillText(head, 540, hy); ctx.restore();
+    ctx.fillStyle = '#FFC400'; ctx.fillRect(540 - 64, hy + 24, 128, 7);
+    if (p.sub) { var ss = fitFont(ctx, String(p.sub).toUpperCase(), '700', 30, BR, W - 120, 4); ctx.font = font('700', ss, BR); ls(ctx, 4); ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(String(p.sub).toUpperCase(), 540, hy + 70); ls(ctx, 0); }
+    if (p.credit) { ctx.font = font('700', 14, BR); ls(ctx, 1); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fillText(String(p.credit).toUpperCase().slice(0, 54), 64, W - 24); ls(ctx, 0); }
+    fifaRibbon(ctx, W - 8, 8);
+  }
+
+  // ---- EVENT (yellow / red card, penalty, weather delay) ----
+  function drawCardIcon(ctx, cx, cy, color) {
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(-9 * Math.PI / 180);
+    ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 14;
+    rrect(ctx, -110, -156, 220, 312, 18); ctx.fillStyle = color; ctx.fill();
+    ctx.shadowColor = 'transparent';
+    var hg = ctx.createLinearGradient(-110, -156, 110, 156); hg.addColorStop(0, 'rgba(255,255,255,.22)'); hg.addColorStop(.5, 'rgba(255,255,255,0)');
+    rrect(ctx, -110, -156, 220, 312, 18); ctx.fillStyle = hg; ctx.fill(); ctx.restore();
+  }
+  function drawBallIcon(ctx, cx, cy, r) {
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = 26; ctx.shadowOffsetY = 12;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = '#F7F7F4'; ctx.fill(); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = '#15171C';
+    function pent(ox, oy, s, rot) { ctx.save(); ctx.translate(ox, oy); ctx.rotate(rot); ctx.beginPath(); for (var i = 0; i < 5; i++) { var a = -Math.PI / 2 + i * 2 * Math.PI / 5; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * s, Math.sin(a) * s); } ctx.closePath(); ctx.fill(); ctx.restore(); }
+    pent(cx, cy, r * 0.34, 0);
+    for (var k = 0; k < 5; k++) { var a = -Math.PI / 2 + k * 2 * Math.PI / 5; pent(cx + Math.cos(a) * r * 0.82, cy + Math.sin(a) * r * 0.82, r * 0.22, a + Math.PI); }
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.15)'; ctx.stroke();
+  }
+  function drawWeatherIcon(ctx, cx, cy) {
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 12;
+    ctx.fillStyle = '#D9DEE6';
+    ctx.beginPath(); ctx.arc(cx - 70, cy, 56, 0, Math.PI * 2); ctx.arc(cx - 4, cy - 34, 72, 0, Math.PI * 2); ctx.arc(cx + 78, cy, 58, 0, Math.PI * 2); ctx.rect(cx - 126, cy, 208, 58); ctx.fill(); ctx.restore();
+    poly(ctx, [cx + 6, cy + 40, cx - 36, cy + 130, cx - 4, cy + 130, cx - 34, cy + 210, cx + 52, cy + 96, cx + 14, cy + 96, cx + 44, cy + 40]);
+    ctx.fillStyle = '#FFC400'; ctx.fill();
+  }
+  function renderEvent(ctx, p, F) {
+    var col = p.acolor || '#0A3478', ev = p.event || 'yellow';
+    var MAP = { yellow: ['#FFC400', 'YELLOW CARD'], red: ['#ED2939', 'RED CARD'], penalty: ['#1E9B4B', 'PENALTY'], weather: ['#3F6CC9', 'DELAYED'] };
+    var m = MAP[ev] || MAP.yellow;
+    ctx.fillStyle = col; ctx.fillRect(0, 0, W, W);
+    if (F.a) cover(ctx, F.a, 0, 0, W, W, 0.5, 0.4);
+    ctx.save(); ctx.globalAlpha = ev === 'weather' ? 0.66 : 0.58; ctx.fillStyle = ev === 'weather' ? '#10243f' : col; ctx.fillRect(0, 0, W, W); ctx.restore();
+    var vg = ctx.createLinearGradient(0, 0, 0, W); vg.addColorStop(0, 'rgba(8,10,14,.5)'); vg.addColorStop(.4, 'rgba(8,10,14,.12)'); vg.addColorStop(1, 'rgba(8,10,14,.86)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, W);
+    fifaRibbon(ctx, 0, 8);
+    ctx.font = font('800', 26, BR); ls(ctx, 6); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 10; ctx.fillStyle = '#fff'; ctx.fillText(String(p.tag || p.team || 'Sportacle').toUpperCase(), 64, 92); ctx.restore(); ls(ctx, 0);
+    if (p.min) pill(ctx, W - 110, 84, (/'$/.test(String(p.min)) ? p.min : p.min + "'"), { font: font('800', 30, BR), lsp: 0, padX: 18, h: 52, bg: m[0], color: contrastInk(m[0]) });
+    var icy = 388;
+    if (ev === 'yellow' || ev === 'red') drawCardIcon(ctx, 540, icy, m[0]);
+    else if (ev === 'penalty') drawBallIcon(ctx, 540, icy, 132);
+    else drawWeatherIcon(ctx, 540, icy - 30);
+    var heroBottom = W - 230;
+    var head = String(p.headline || m[1]).toUpperCase(), hsz = fitFont(ctx, head, '700', 150, KH, W - 110, 0);
+    ctx.font = font('700', hsz, KH); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#fff';
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 22; ctx.shadowOffsetY = 6; ctx.fillText(head, 540, heroBottom); ctx.restore();
+    ctx.fillStyle = m[0]; ctx.fillRect(540 - 58, heroBottom + 22, 116, 7);
+    if (p.detail) { var ds = fitFont(ctx, String(p.detail), '600', 32, BR, W - 150, 0); ctx.font = font('600', ds, BR); ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillText(String(p.detail), 540, heroBottom + 66); }
+    drawBrand(ctx, m[0]);
+  }
+
   // ---- public entry ----
   function renderTo(canvas, type, p, scale) {
     scale = scale || 2;
@@ -1095,7 +1195,7 @@
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     return ensureFonts().then(function () {
       if (type === 'stats') {
-        return (p.photo ? loadImg(p.photo) : Promise.resolve(null)).then(function (ph) { renderStats(ctx, p, ph); });
+        return Promise.all([p.photo ? loadImg(p.photo) : null, p.signature ? loadImg(p.signature) : null]).then(function (f) { renderStats(ctx, p, f[0], f[1]); });
       }
       if (type === 'infographic' || type === 'standings' || type === 'cooked') {
         var codes = (p.rows || []).map(function (r) { return r.code; });
@@ -1122,6 +1222,16 @@
       }
       if (type === 'houseline') {
         return loadFlag(p.code).then(function (f) { renderHouseLine(ctx, p, f); });
+      }
+      if (type === 'brhero') {
+        return ensureAnton().then(function () {
+          return Promise.all([p.photo ? loadImg(p.photo) : null, loadFlag(p.ac), loadFlag(p.bc), p.signature ? loadImg(p.signature) : null]).then(function (f) {
+            renderBRHero(ctx, p, { photo: f[0], a: f[1], b: f[2], signature: f[3] });
+          });
+        });
+      }
+      if (type === 'event') {
+        return loadFlag(p.ac).then(function (f) { renderEvent(ctx, p, { a: f }); });
       }
       if (type === 'goal') {
         return Promise.all([loadFlag(p.code), loadFlag(p.code), loadFlag(p.vs)]).then(function (f) {
