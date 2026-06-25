@@ -951,7 +951,7 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     }).catch(function(e){ statusEl.textContent="Projections load failed: "+e; });
   }
   function drawOddsboard(){
-    loadPreds().then(function(d){
+    return loadPreds().then(function(d){
       var tn=opt("oteam").value, m=(d.matchups||[]).filter(function(x){return (x.team||{}).name===tn;})[0];
       if(!m){ statusEl.textContent="No projection for that team yet."; return; }
       var opp=m.opponent||{}, rows=[{code:opp.code,name:opp.name,prob:opp.prob,color:opp.color}];
@@ -1366,15 +1366,20 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
     if(busy) return; busy=true; dlBtn.disabled=true;
     var name=fname(); statusEl.textContent="Rendering...";
     clearTimeout(t);
-    (type==="infographic"?drawInfographic():type==="standings"?drawStandingsCard():type==="cooked"?drawCooked():type==="tierboard"?drawTierboard():type==="movers"?drawMovers():type==="permutations"?drawPermutations():type==="oddsboard"?drawOddsboard():render()).then(function(){
+    function done(){ busy=false; dlBtn.disabled=false; clearTimeout(wd); }
+    // watchdog: never leave the button stuck on "Rendering..." if a render hangs
+    var wd=setTimeout(function(){ if(busy){ busy=false; dlBtn.disabled=false; statusEl.textContent="Render timed out. Try again."; } }, 14000);
+    // Promise.resolve() so a draw fn that returns undefined can never throw on .then
+    var job=(type==="infographic"?drawInfographic():type==="standings"?drawStandingsCard():type==="cooked"?drawCooked():type==="tierboard"?drawTierboard():type==="movers"?drawMovers():type==="permutations"?drawPermutations():type==="oddsboard"?drawOddsboard():render());
+    Promise.resolve(job).then(function(){
       cv.toBlob(function(blob){
-        if(!blob){ busy=false; dlBtn.disabled=false; statusEl.textContent="Export failed."; return; }
+        if(!blob){ done(); statusEl.textContent="Export failed."; return; }
         var url=URL.createObjectURL(blob), a=document.createElement("a");
         a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
         setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-        busy=false; dlBtn.disabled=false; statusEl.textContent="Downloaded "+name;
+        done(); statusEl.textContent="Downloaded "+name;
       },"image/png");
-    }).catch(function(e){ busy=false; dlBtn.disabled=false; statusEl.textContent="Export failed: "+e; });
+    }).catch(function(e){ done(); statusEl.textContent="Export failed: "+e; });
   });
 })();
 </script>
