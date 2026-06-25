@@ -186,6 +186,39 @@ def build_matchups(results):
     return [card for _m, card in built]
 
 
+def build_team_odds(results):
+    """Per-team R32 opponent odds for EVERY team that can reach the Round of 32,
+    so the Odds card is not limited to the 16 distinct bracket subjects. Each team
+    is aggregated across whichever slot it lands in; sorted by how often it reaches
+    the R32 (most likely qualifiers first). Same per-card schema as build_matchups."""
+    slot_opponents = results["slot_opponents"]
+    opp_by_team = defaultdict(lambda: defaultdict(int))
+    reach = defaultdict(int)
+    for dist in slot_opponents.values():
+        for (home, away), cnt in dist.items():
+            if home is None or away is None:
+                continue
+            opp_by_team[home][away] += cnt
+            opp_by_team[away][home] += cnt
+            reach[home] += cnt
+            reach[away] += cnt
+    cards = []
+    for team, cond in opp_by_team.items():
+        payload = _opp_payload(cond)
+        if payload is None:
+            continue
+        opp_name, opp_prob, alternates, field = payload
+        opp_obj = _team_obj(opp_name); opp_obj["prob"] = opp_prob
+        cards.append((reach[team], {
+            "team": _team_obj(team),
+            "opponent": opp_obj,
+            "alternates": alternates,
+            "field": field,
+        }))
+    cards.sort(key=lambda c: -c[0])
+    return [card for _r, card in cards]
+
+
 def main():
     print("Fetching group membership from ESPN standings ...")
     membership = espn.fetch_group_membership()
@@ -204,6 +237,8 @@ def main():
 
     matchups = build_matchups(results)
     print("  R32 ties produced:      ", len(matchups))
+    team_odds = build_team_odds(results)
+    print("  team odds produced:     ", len(team_odds))
 
     if last:
         updated_iso = _match_end_iso(last["iso"])
@@ -222,6 +257,7 @@ def main():
         "updated_iso": updated_iso,
         "model": "Sportacle forecast",
         "matchups": matchups,
+        "team_odds": team_odds,
     }
     if last_result:
         out["last_result"] = last_result

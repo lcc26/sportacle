@@ -944,15 +944,18 @@ header span{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transfor
   // ---- Odds Board: one team's projected R32 opponent odds ----
   var PREDS=null;
   function loadPreds(){ if(PREDS) return Promise.resolve(PREDS); return fetch("/predictions.json").then(function(r){return r.json();}).then(function(d){ PREDS=d; return d; }); }
+  // every team with an R32 chance (team_odds, 45ish) if the engine emits it; else
+  // the 16 distinct bracket subjects (matchups) as a backward-compatible fallback
+  function oddsList(d){ return (d.team_odds && d.team_odds.length) ? d.team_odds : (d.matchups||[]); }
   function fillOddsTeams(){
     loadPreds().then(function(d){ var sel=document.getElementById("oteam"); if(sel.options.length>1){ drawOddsboard(); return; }
-      sel.innerHTML=(d.matchups||[]).map(function(m){ return '<option value="'+(m.team||{}).name+'">'+(m.team||{}).name+'</option>'; }).join("")||'<option value="">No projections yet</option>';
+      sel.innerHTML=oddsList(d).map(function(m){ return '<option value="'+(m.team||{}).name+'">'+(m.team||{}).name+'</option>'; }).join("")||'<option value="">No projections yet</option>';
       drawOddsboard();
     }).catch(function(e){ statusEl.textContent="Projections load failed: "+e; });
   }
   function drawOddsboard(){
     return loadPreds().then(function(d){
-      var tn=opt("oteam").value, m=(d.matchups||[]).filter(function(x){return (x.team||{}).name===tn;})[0];
+      var tn=opt("oteam").value, m=oddsList(d).filter(function(x){return (x.team||{}).name===tn;})[0];
       if(!m){ statusEl.textContent="No projection for that team yet."; return; }
       var opp=m.opponent||{}, rows=[{code:opp.code,name:opp.name,prob:opp.prob,color:opp.color}];
       (m.alternates||[]).forEach(function(a){ rows.push({code:teamCode(a.name),name:a.name,prob:a.prob,color:teamColor(a.name)}); });

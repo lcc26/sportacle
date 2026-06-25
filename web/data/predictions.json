@@ -1,33 +1,24 @@
 {
   "tournament": "FIFA World Cup 2026",
   "stage": "Projected Round of 32",
-  "updated_iso": "2026-06-17T21:55Z",
+  "updated_iso": "2026-06-25T02:55Z",
   "model": "Sportacle forecast",
   "matchups": [
     {
       "team": {
-        "name": "South Korea",
-        "code": "kr",
-        "color": "#0A3478",
+        "name": "South Africa",
+        "code": "za",
+        "color": "#007749",
         "note": "Projected runner-up, Group A"
       },
       "opponent": {
         "name": "Canada",
         "code": "ca",
         "color": "#D52B1E",
-        "prob": 28
+        "prob": 100
       },
-      "alternates": [
-        {
-          "name": "Bosnia-Herzegovina",
-          "prob": 26
-        },
-        {
-          "name": "Switzerland",
-          "prob": 24
-        }
-      ],
-      "field": 22
+      "alternates": [],
+      "field": 0
     },
     {
       "team": {
@@ -40,19 +31,19 @@
         "name": "Japan",
         "code": "jp",
         "color": "#BC002D",
-        "prob": 33
+        "prob": 39
       },
       "alternates": [
         {
           "name": "Netherlands",
-          "prob": 32
+          "prob": 37
         },
         {
           "name": "Sweden",
-          "prob": 30
+          "prob": 23
         }
       ],
-      "field": 5
+      "field": 1
     },
     {
       "team": {
@@ -62,47 +53,38 @@
         "note": "Projected winner, Group E"
       },
       "opponent": {
-        "name": "Czechia",
-        "code": "cz",
-        "color": "#11457E",
-        "prob": 14
+        "name": "Bosnia-Herzegovina",
+        "code": "ba",
+        "color": "#002395",
+        "prob": 38
       },
       "alternates": [
         {
-          "name": "South Africa",
-          "prob": 8
+          "name": "South Korea",
+          "prob": 34
         },
         {
-          "name": "South Korea",
-          "prob": 7
+          "name": "Paraguay",
+          "prob": 12
         }
       ],
-      "field": 71
+      "field": 16
     },
     {
       "team": {
-        "name": "Sweden",
-        "code": "se",
-        "color": "#006AA7",
+        "name": "Netherlands",
+        "code": "nl",
+        "color": "#EC8B00",
         "note": "Projected winner, Group F"
       },
       "opponent": {
         "name": "Morocco",
         "code": "ma",
         "color": "#C1272D",
-        "prob": 36
+        "prob": 100
       },
-      "alternates": [
-        {
-          "name": "Scotland",
-          "prob": 32
-        },
-        {
-          "name": "Brazil",
-          "prob": 30
-        }
-      ],
-      "field": 2
+      "alternates": [],
+      "field": 0
     },
     {
       "team": {
@@ -115,19 +97,15 @@
         "name": "Norway",
         "code": "no",
         "color": "#BA0C2F",
-        "prob": 44
+        "prob": 69
       },
       "alternates": [
         {
           "name": "France",
           "prob": 31
-        },
-        {
-          "name": "Senegal",
-          "prob": 22
         }
       ],
-      "field": 3
+      "field": 0
     },
     {
       "team": {
@@ -137,22 +115,22 @@
         "note": "Projected winner, Group I"
       },
       "opponent": {
-        "name": "Morocco",
-        "code": "ma",
-        "color": "#C1272D",
-        "prob": 11
+        "name": "Paraguay",
+        "code": "py",
+        "color": "#D52B1E",
+        "prob": 21
       },
       "alternates": [
         {
           "name": "Scotland",
-          "prob": 11
+          "prob": 16
         },
         {
-          "name": "Turkiye",
-          "prob": 10
+          "name": "Australia",
+          "prob": 14
         }
       ],
-      "field": 68
+      "field": 49
     },
     {
       "team": {
@@ -162,22 +140,22 @@
         "note": "Projected winner, Group A"
       },
       "opponent": {
-        "name": "Ecuador",
-        "code": "ec",
-        "color": "#FFD100",
-        "prob": 9
+        "name": "Sweden",
+        "code": "se",
+        "color": "#006AA7",
+        "prob": 27
       },
       "alternates": [
         {
-          "name": "Cape Verde",
-          "prob": 8
+          "name": "Japan",
+          "prob": 14
         },
         {
-          "name": "Saudi Arabia",
-          "prob": 8
+          "name": "Scotland",
+          "prob": 13
         }
       ],
-      "field": 75
+      "field": 46
     },
     {
       "team": {
@@ -190,44 +168,44 @@
         "name": "Congo DR",
         "code": "cd",
         "color": "#007FFF",
-        "prob": 22
-      },
-      "alternates": [
-        {
-          "name": "Uzbekistan",
-          "prob": 16
-        },
-        {
-          "name": "Portugal",
-          "prob": 15
-        }
-      ],
-      "field": 47
-    },
-    {
-      "team": {
-        "name": "Belgium",
-        "code": "be",
-        "color": "#ED2939",
-        "note": "Projected winner, Group G"
-      },
-      "opponent": {
-        "name": "Czechia",
-        "code": "cz",
-        "color": "#11457E",
-        "prob": 13
+        "prob": 39
       },
       "alternates": [
         {
           "name": "Senegal",
-          "prob": 8
+          "prob": 18
         },
         {
-          "name": "South Africa",
-          "prob": 8
+          "name": "Ivory Coast",
+          "prob": 5
         }
       ],
-      "field": 71
+      "field": 38
+    },
+    {
+      "team": {
+        "name": "Egypt",
+        "code": "eg",
+        "color": "#C8102E",
+        "note": "Projected winner, Group G"
+      },
+      "opponent": {
+        "name": "South Korea",
+        "code": "kr",
+        "color": "#0A3478",
+        "prob": 58
+      },
+      "alternates": [
+        {
+          "name": "Algeria",
+          "prob": 11
+        },
+        {
+          "name": "Senegal",
+          "prob": 10
+        }
+      ],
+      "field": 21
     },
     {
       "team": {
@@ -237,22 +215,22 @@
         "note": "Projected winner, Group D"
       },
       "opponent": {
-        "name": "Qatar",
-        "code": "qa",
-        "color": "#8A1538",
-        "prob": 11
+        "name": "Bosnia-Herzegovina",
+        "code": "ba",
+        "color": "#002395",
+        "prob": 62
       },
       "alternates": [
         {
-          "name": "Bosnia-Herzegovina",
-          "prob": 11
+          "name": "Algeria",
+          "prob": 12
         },
         {
-          "name": "Switzerland",
-          "prob": 10
+          "name": "Senegal",
+          "prob": 9
         }
       ],
-      "field": 68
+      "field": 17
     },
     {
       "team": {
@@ -265,44 +243,44 @@
         "name": "Austria",
         "code": "at",
         "color": "#ED2939",
-        "prob": 53
+        "prob": 65
       },
       "alternates": [
         {
-          "name": "Argentina",
-          "prob": 21
+          "name": "Algeria",
+          "prob": 34
         },
         {
-          "name": "Algeria",
-          "prob": 20
+          "name": "Argentina",
+          "prob": 1
         }
       ],
-      "field": 6
+      "field": 0
     },
     {
       "team": {
-        "name": "Colombia",
-        "code": "co",
-        "color": "#FCD116",
+        "name": "Portugal",
+        "code": "pt",
+        "color": "#1B5E20",
         "note": "Projected runner-up, Group K"
       },
       "opponent": {
         "name": "Croatia",
         "code": "hr",
         "color": "#C8102E",
-        "prob": 38
+        "prob": 39
       },
       "alternates": [
         {
           "name": "Ghana",
-          "prob": 24
+          "prob": 34
         },
         {
-          "name": "Panama",
-          "prob": 21
+          "name": "England",
+          "prob": 27
         }
       ],
-      "field": 17
+      "field": 0
     },
     {
       "team": {
@@ -315,19 +293,19 @@
         "name": "Egypt",
         "code": "eg",
         "color": "#C8102E",
-        "prob": 13
+        "prob": 21
       },
       "alternates": [
         {
-          "name": "New Zealand",
-          "prob": 11
+          "name": "Iran",
+          "prob": 19
         },
         {
-          "name": "Iran",
-          "prob": 10
+          "name": "Sweden",
+          "prob": 17
         }
       ],
-      "field": 66
+      "field": 43
     },
     {
       "team": {
@@ -337,22 +315,22 @@
         "note": "Projected runner-up, Group D"
       },
       "opponent": {
-        "name": "Egypt",
-        "code": "eg",
-        "color": "#C8102E",
-        "prob": 32
+        "name": "Belgium",
+        "code": "be",
+        "color": "#ED2939",
+        "prob": 57
       },
       "alternates": [
         {
-          "name": "Belgium",
-          "prob": 26
+          "name": "New Zealand",
+          "prob": 16
         },
         {
-          "name": "Iran",
-          "prob": 22
+          "name": "Egypt",
+          "prob": 13
         }
       ],
-      "field": 20
+      "field": 14
     },
     {
       "team": {
@@ -362,48 +340,1104 @@
         "note": "Projected winner, Group J"
       },
       "opponent": {
-        "name": "Uruguay",
-        "code": "uy",
-        "color": "#0038A8",
-        "prob": 31
+        "name": "Cape Verde",
+        "code": "cv",
+        "color": "#003893",
+        "prob": 46
       },
       "alternates": [
         {
-          "name": "Spain",
-          "prob": 26
+          "name": "Saudi Arabia",
+          "prob": 28
         },
         {
-          "name": "Saudi Arabia",
-          "prob": 22
+          "name": "Spain",
+          "prob": 19
         }
       ],
-      "field": 21
+      "field": 7
+    },
+    {
+      "team": {
+        "name": "Colombia",
+        "code": "co",
+        "color": "#FCD116",
+        "note": "Projected winner, Group K"
+      },
+      "opponent": {
+        "name": "Ghana",
+        "code": "gh",
+        "color": "#CE1126",
+        "prob": 52
+      },
+      "alternates": [
+        {
+          "name": "Croatia",
+          "prob": 32
+        },
+        {
+          "name": "Panama",
+          "prob": 6
+        }
+      ],
+      "field": 10
+    }
+  ],
+  "team_odds": [
+    {
+      "team": {
+        "name": "South Africa",
+        "code": "za",
+        "color": "#007749"
+      },
+      "opponent": {
+        "name": "Canada",
+        "code": "ca",
+        "color": "#D52B1E",
+        "prob": 100
+      },
+      "alternates": [],
+      "field": 0
+    },
+    {
+      "team": {
+        "name": "Canada",
+        "code": "ca",
+        "color": "#D52B1E"
+      },
+      "opponent": {
+        "name": "South Africa",
+        "code": "za",
+        "color": "#007749",
+        "prob": 100
+      },
+      "alternates": [],
+      "field": 0
+    },
+    {
+      "team": {
+        "name": "Brazil",
+        "code": "br",
+        "color": "#1E9B4B"
+      },
+      "opponent": {
+        "name": "Japan",
+        "code": "jp",
+        "color": "#BC002D",
+        "prob": 39
+      },
+      "alternates": [
+        {
+          "name": "Netherlands",
+          "prob": 37
+        },
+        {
+          "name": "Sweden",
+          "prob": 23
+        }
+      ],
+      "field": 1
+    },
+    {
+      "team": {
+        "name": "Netherlands",
+        "code": "nl",
+        "color": "#EC8B00"
+      },
+      "opponent": {
+        "name": "Morocco",
+        "code": "ma",
+        "color": "#C1272D",
+        "prob": 60
+      },
+      "alternates": [
+        {
+          "name": "Brazil",
+          "prob": 37
+        },
+        {
+          "name": "Mexico",
+          "prob": 1
+        }
+      ],
+      "field": 2
+    },
+    {
+      "team": {
+        "name": "Japan",
+        "code": "jp",
+        "color": "#BC002D"
+      },
+      "opponent": {
+        "name": "Brazil",
+        "code": "br",
+        "color": "#1E9B4B",
+        "prob": 39
+      },
+      "alternates": [
+        {
+          "name": "Morocco",
+          "prob": 30
+        },
+        {
+          "name": "Mexico",
+          "prob": 14
+        }
+      ],
+      "field": 17
+    },
+    {
+      "team": {
+        "name": "Germany",
+        "code": "de",
+        "color": "#2B2B2B"
+      },
+      "opponent": {
+        "name": "Bosnia-Herzegovina",
+        "code": "ba",
+        "color": "#002395",
+        "prob": 38
+      },
+      "alternates": [
+        {
+          "name": "South Korea",
+          "prob": 34
+        },
+        {
+          "name": "Paraguay",
+          "prob": 12
+        }
+      ],
+      "field": 16
+    },
+    {
+      "team": {
+        "name": "Bosnia-Herzegovina",
+        "code": "ba",
+        "color": "#002395"
+      },
+      "opponent": {
+        "name": "United States",
+        "code": "us",
+        "color": "#3C3B6E",
+        "prob": 61
+      },
+      "alternates": [
+        {
+          "name": "Germany",
+          "prob": 38
+        },
+        {
+          "name": "Australia",
+          "prob": 1
+        }
+      ],
+      "field": 0
+    },
+    {
+      "team": {
+        "name": "Morocco",
+        "code": "ma",
+        "color": "#C1272D"
+      },
+      "opponent": {
+        "name": "Netherlands",
+        "code": "nl",
+        "color": "#EC8B00",
+        "prob": 60
+      },
+      "alternates": [
+        {
+          "name": "Japan",
+          "prob": 30
+        },
+        {
+          "name": "Sweden",
+          "prob": 10
+        }
+      ],
+      "field": 0
+    },
+    {
+      "team": {
+        "name": "France",
+        "code": "fr",
+        "color": "#0055A4"
+      },
+      "opponent": {
+        "name": "Ivory Coast",
+        "code": "ci",
+        "color": "#F77F00",
+        "prob": 21
+      },
+      "alternates": [
+        {
+          "name": "Paraguay",
+          "prob": 15
+        },
+        {
+          "name": "Scotland",
+          "prob": 11
+        }
+      ],
+      "field": 53
+    },
+    {
+      "team": {
+        "name": "Norway",
+        "code": "no",
+        "color": "#BA0C2F"
+      },
+      "opponent": {
+        "name": "Ivory Coast",
+        "code": "ci",
+        "color": "#F77F00",
+        "prob": 47
+      },
+      "alternates": [
+        {
+          "name": "Curacao",
+          "prob": 14
+        },
+        {
+          "name": "Ecuador",
+          "prob": 7
+        }
+      ],
+      "field": 32
+    },
+    {
+      "team": {
+        "name": "Egypt",
+        "code": "eg",
+        "color": "#C8102E"
+      },
+      "opponent": {
+        "name": "South Korea",
+        "code": "kr",
+        "color": "#0A3478",
+        "prob": 34
+      },
+      "alternates": [
+        {
+          "name": "Switzerland",
+          "prob": 21
+        },
+        {
+          "name": "Australia",
+          "prob": 8
+        }
+      ],
+      "field": 37
+    },
+    {
+      "team": {
+        "name": "Spain",
+        "code": "es",
+        "color": "#C60B1E"
+      },
+      "opponent": {
+        "name": "Austria",
+        "code": "at",
+        "color": "#ED2939",
+        "prob": 46
+      },
+      "alternates": [
+        {
+          "name": "Algeria",
+          "prob": 24
+        },
+        {
+          "name": "Argentina",
+          "prob": 20
+        }
+      ],
+      "field": 10
+    },
+    {
+      "team": {
+        "name": "Mexico",
+        "code": "mx",
+        "color": "#0B6B3A"
+      },
+      "opponent": {
+        "name": "Sweden",
+        "code": "se",
+        "color": "#006AA7",
+        "prob": 27
+      },
+      "alternates": [
+        {
+          "name": "Japan",
+          "prob": 14
+        },
+        {
+          "name": "Scotland",
+          "prob": 13
+        }
+      ],
+      "field": 46
+    },
+    {
+      "team": {
+        "name": "England",
+        "code": "gb-eng",
+        "color": "#CF142B"
+      },
+      "opponent": {
+        "name": "Congo DR",
+        "code": "cd",
+        "color": "#007FFF",
+        "prob": 28
+      },
+      "alternates": [
+        {
+          "name": "Portugal",
+          "prob": 15
+        },
+        {
+          "name": "Colombia",
+          "prob": 13
+        }
+      ],
+      "field": 44
     },
     {
       "team": {
         "name": "Portugal",
         "code": "pt",
-        "color": "#1B5E20",
-        "note": "Projected winner, Group K"
+        "color": "#1B5E20"
       },
       "opponent": {
-        "name": "Croatia",
-        "code": "hr",
+        "name": "Ghana",
+        "code": "gh",
+        "color": "#CE1126",
+        "prob": 42
+      },
+      "alternates": [
+        {
+          "name": "Croatia",
+          "prob": 35
+        },
+        {
+          "name": "England",
+          "prob": 15
+        }
+      ],
+      "field": 8
+    },
+    {
+      "team": {
+        "name": "United States",
+        "code": "us",
+        "color": "#3C3B6E"
+      },
+      "opponent": {
+        "name": "Bosnia-Herzegovina",
+        "code": "ba",
+        "color": "#002395",
+        "prob": 61
+      },
+      "alternates": [
+        {
+          "name": "Algeria",
+          "prob": 11
+        },
+        {
+          "name": "Senegal",
+          "prob": 9
+        }
+      ],
+      "field": 19
+    },
+    {
+      "team": {
+        "name": "Argentina",
+        "code": "ar",
+        "color": "#75AADB"
+      },
+      "opponent": {
+        "name": "Cape Verde",
+        "code": "cv",
+        "color": "#003893",
+        "prob": 46
+      },
+      "alternates": [
+        {
+          "name": "Saudi Arabia",
+          "prob": 28
+        },
+        {
+          "name": "Spain",
+          "prob": 20
+        }
+      ],
+      "field": 6
+    },
+    {
+      "team": {
+        "name": "Colombia",
+        "code": "co",
+        "color": "#FCD116"
+      },
+      "opponent": {
+        "name": "Ghana",
+        "code": "gh",
+        "color": "#CE1126",
+        "prob": 43
+      },
+      "alternates": [
+        {
+          "name": "Croatia",
+          "prob": 35
+        },
+        {
+          "name": "England",
+          "prob": 13
+        }
+      ],
+      "field": 9
+    },
+    {
+      "team": {
+        "name": "Switzerland",
+        "code": "ch",
+        "color": "#D52B1E"
+      },
+      "opponent": {
+        "name": "Egypt",
+        "code": "eg",
         "color": "#C8102E",
         "prob": 21
       },
       "alternates": [
         {
-          "name": "Ghana",
+          "name": "Iran",
           "prob": 19
         },
         {
-          "name": "Panama",
+          "name": "Sweden",
           "prob": 17
         }
       ],
       "field": 43
+    },
+    {
+      "team": {
+        "name": "Ghana",
+        "code": "gh",
+        "color": "#CE1126"
+      },
+      "opponent": {
+        "name": "Colombia",
+        "code": "co",
+        "color": "#FCD116",
+        "prob": 43
+      },
+      "alternates": [
+        {
+          "name": "Portugal",
+          "prob": 42
+        },
+        {
+          "name": "Congo DR",
+          "prob": 6
+        }
+      ],
+      "field": 9
+    },
+    {
+      "team": {
+        "name": "Sweden",
+        "code": "se",
+        "color": "#006AA7"
+      },
+      "opponent": {
+        "name": "Mexico",
+        "code": "mx",
+        "color": "#0B6B3A",
+        "prob": 29
+      },
+      "alternates": [
+        {
+          "name": "Brazil",
+          "prob": 25
+        },
+        {
+          "name": "Switzerland",
+          "prob": 18
+        }
+      ],
+      "field": 28
+    },
+    {
+      "team": {
+        "name": "South Korea",
+        "code": "kr",
+        "color": "#0A3478"
+      },
+      "opponent": {
+        "name": "Egypt",
+        "code": "eg",
+        "color": "#C8102E",
+        "prob": 37
+      },
+      "alternates": [
+        {
+          "name": "Germany",
+          "prob": 36
+        },
+        {
+          "name": "Iran",
+          "prob": 16
+        }
+      ],
+      "field": 11
+    },
+    {
+      "team": {
+        "name": "Austria",
+        "code": "at",
+        "color": "#ED2939"
+      },
+      "opponent": {
+        "name": "Spain",
+        "code": "es",
+        "color": "#C60B1E",
+        "prob": 50
+      },
+      "alternates": [
+        {
+          "name": "Uruguay",
+          "prob": 19
+        },
+        {
+          "name": "United States",
+          "prob": 9
+        }
+      ],
+      "field": 22
+    },
+    {
+      "team": {
+        "name": "Australia",
+        "code": "au",
+        "color": "#00843D"
+      },
+      "opponent": {
+        "name": "Belgium",
+        "code": "be",
+        "color": "#ED2939",
+        "prob": 41
+      },
+      "alternates": [
+        {
+          "name": "New Zealand",
+          "prob": 12
+        },
+        {
+          "name": "France",
+          "prob": 11
+        }
+      ],
+      "field": 36
+    },
+    {
+      "team": {
+        "name": "Ivory Coast",
+        "code": "ci",
+        "color": "#F77F00"
+      },
+      "opponent": {
+        "name": "Norway",
+        "code": "no",
+        "color": "#BA0C2F",
+        "prob": 55
+      },
+      "alternates": [
+        {
+          "name": "France",
+          "prob": 25
+        },
+        {
+          "name": "Mexico",
+          "prob": 12
+        }
+      ],
+      "field": 8
+    },
+    {
+      "team": {
+        "name": "Croatia",
+        "code": "hr",
+        "color": "#C8102E"
+      },
+      "opponent": {
+        "name": "Portugal",
+        "code": "pt",
+        "color": "#1B5E20",
+        "prob": 42
+      },
+      "alternates": [
+        {
+          "name": "Colombia",
+          "prob": 42
+        },
+        {
+          "name": "Congo DR",
+          "prob": 7
+        }
+      ],
+      "field": 9
+    },
+    {
+      "team": {
+        "name": "Belgium",
+        "code": "be",
+        "color": "#ED2939"
+      },
+      "opponent": {
+        "name": "Australia",
+        "code": "au",
+        "color": "#00843D",
+        "prob": 46
+      },
+      "alternates": [
+        {
+          "name": "Paraguay",
+          "prob": 26
+        },
+        {
+          "name": "South Korea",
+          "prob": 14
+        }
+      ],
+      "field": 14
+    },
+    {
+      "team": {
+        "name": "Paraguay",
+        "code": "py",
+        "color": "#D52B1E"
+      },
+      "opponent": {
+        "name": "Belgium",
+        "code": "be",
+        "color": "#ED2939",
+        "prob": 28
+      },
+      "alternates": [
+        {
+          "name": "France",
+          "prob": 20
+        },
+        {
+          "name": "Germany",
+          "prob": 17
+        }
+      ],
+      "field": 35
+    },
+    {
+      "team": {
+        "name": "Algeria",
+        "code": "dz",
+        "color": "#006233"
+      },
+      "opponent": {
+        "name": "Spain",
+        "code": "es",
+        "color": "#C60B1E",
+        "prob": 35
+      },
+      "alternates": [
+        {
+          "name": "United States",
+          "prob": 17
+        },
+        {
+          "name": "Uruguay",
+          "prob": 13
+        }
+      ],
+      "field": 35
+    },
+    {
+      "team": {
+        "name": "Iran",
+        "code": "ir",
+        "color": "#239F40"
+      },
+      "opponent": {
+        "name": "Switzerland",
+        "code": "ch",
+        "color": "#D52B1E",
+        "prob": 31
+      },
+      "alternates": [
+        {
+          "name": "South Korea",
+          "prob": 23
+        },
+        {
+          "name": "Australia",
+          "prob": 13
+        }
+      ],
+      "field": 33
+    },
+    {
+      "team": {
+        "name": "Cape Verde",
+        "code": "cv",
+        "color": "#003893"
+      },
+      "opponent": {
+        "name": "Argentina",
+        "code": "ar",
+        "color": "#75AADB",
+        "prob": 76
+      },
+      "alternates": [
+        {
+          "name": "England",
+          "prob": 5
+        },
+        {
+          "name": "Mexico",
+          "prob": 5
+        }
+      ],
+      "field": 14
+    },
+    {
+      "team": {
+        "name": "Senegal",
+        "code": "sn",
+        "color": "#00853F"
+      },
+      "opponent": {
+        "name": "England",
+        "code": "gb-eng",
+        "color": "#CF142B",
+        "prob": 25
+      },
+      "alternates": [
+        {
+          "name": "Switzerland",
+          "prob": 18
+        },
+        {
+          "name": "United States",
+          "prob": 16
+        }
+      ],
+      "field": 41
+    },
+    {
+      "team": {
+        "name": "Uruguay",
+        "code": "uy",
+        "color": "#0038A8"
+      },
+      "opponent": {
+        "name": "Austria",
+        "code": "at",
+        "color": "#ED2939",
+        "prob": 40
+      },
+      "alternates": [
+        {
+          "name": "Algeria",
+          "prob": 21
+        },
+        {
+          "name": "Argentina",
+          "prob": 15
+        }
+      ],
+      "field": 24
+    },
+    {
+      "team": {
+        "name": "Saudi Arabia",
+        "code": "sa",
+        "color": "#006C35"
+      },
+      "opponent": {
+        "name": "Argentina",
+        "code": "ar",
+        "color": "#75AADB",
+        "prob": 70
+      },
+      "alternates": [
+        {
+          "name": "Mexico",
+          "prob": 9
+        },
+        {
+          "name": "England",
+          "prob": 9
+        }
+      ],
+      "field": 12
+    },
+    {
+      "team": {
+        "name": "Congo DR",
+        "code": "cd",
+        "color": "#007FFF"
+      },
+      "opponent": {
+        "name": "England",
+        "code": "gb-eng",
+        "color": "#CF142B",
+        "prob": 71
+      },
+      "alternates": [
+        {
+          "name": "Ghana",
+          "prob": 14
+        },
+        {
+          "name": "Croatia",
+          "prob": 14
+        }
+      ],
+      "field": 1
+    },
+    {
+      "team": {
+        "name": "Ecuador",
+        "code": "ec",
+        "color": "#FFD100"
+      },
+      "opponent": {
+        "name": "Mexico",
+        "code": "mx",
+        "color": "#0B6B3A",
+        "prob": 40
+      },
+      "alternates": [
+        {
+          "name": "Norway",
+          "prob": 25
+        },
+        {
+          "name": "England",
+          "prob": 13
+        }
+      ],
+      "field": 22
+    },
+    {
+      "team": {
+        "name": "Curacao",
+        "code": "cw",
+        "color": "#002B7F"
+      },
+      "opponent": {
+        "name": "Norway",
+        "code": "no",
+        "color": "#BA0C2F",
+        "prob": 48
+      },
+      "alternates": [
+        {
+          "name": "France",
+          "prob": 23
+        },
+        {
+          "name": "Mexico",
+          "prob": 18
+        }
+      ],
+      "field": 11
+    },
+    {
+      "team": {
+        "name": "Scotland",
+        "code": "gb-sct",
+        "color": "#0065BF"
+      },
+      "opponent": {
+        "name": "Mexico",
+        "code": "mx",
+        "color": "#0B6B3A",
+        "prob": 44
+      },
+      "alternates": [
+        {
+          "name": "France",
+          "prob": 38
+        },
+        {
+          "name": "Norway",
+          "prob": 17
+        }
+      ],
+      "field": 1
+    },
+    {
+      "team": {
+        "name": "New Zealand",
+        "code": "nz",
+        "color": "#1B1B1B"
+      },
+      "opponent": {
+        "name": "Australia",
+        "code": "au",
+        "color": "#00843D",
+        "prob": 47
+      },
+      "alternates": [
+        {
+          "name": "Paraguay",
+          "prob": 27
+        },
+        {
+          "name": "Switzerland",
+          "prob": 18
+        }
+      ],
+      "field": 8
+    },
+    {
+      "team": {
+        "name": "Turkiye",
+        "code": "tr",
+        "color": "#E30A17"
+      },
+      "opponent": {
+        "name": "France",
+        "code": "fr",
+        "color": "#0055A4",
+        "prob": 42
+      },
+      "alternates": [
+        {
+          "name": "Germany",
+          "prob": 34
+        },
+        {
+          "name": "Norway",
+          "prob": 19
+        }
+      ],
+      "field": 5
+    },
+    {
+      "team": {
+        "name": "Jordan",
+        "code": "jo",
+        "color": "#007A3D"
+      },
+      "opponent": {
+        "name": "United States",
+        "code": "us",
+        "color": "#3C3B6E",
+        "prob": 32
+      },
+      "alternates": [
+        {
+          "name": "Switzerland",
+          "prob": 22
+        },
+        {
+          "name": "Egypt",
+          "prob": 20
+        }
+      ],
+      "field": 26
+    },
+    {
+      "team": {
+        "name": "Panama",
+        "code": "pa",
+        "color": "#005293"
+      },
+      "opponent": {
+        "name": "Colombia",
+        "code": "co",
+        "color": "#FCD116",
+        "prob": 54
+      },
+      "alternates": [
+        {
+          "name": "Portugal",
+          "prob": 46
+        }
+      ],
+      "field": 0
+    },
+    {
+      "team": {
+        "name": "Iraq",
+        "code": "iq",
+        "color": "#007A3D"
+      },
+      "opponent": {
+        "name": "England",
+        "code": "gb-eng",
+        "color": "#CF142B",
+        "prob": 35
+      },
+      "alternates": [
+        {
+          "name": "Mexico",
+          "prob": 14
+        },
+        {
+          "name": "Switzerland",
+          "prob": 13
+        }
+      ],
+      "field": 38
+    },
+    {
+      "team": {
+        "name": "Uzbekistan",
+        "code": "uz",
+        "color": "#1EB53A"
+      },
+      "opponent": {
+        "name": "England",
+        "code": "gb-eng",
+        "color": "#CF142B",
+        "prob": 72
+      },
+      "alternates": [
+        {
+          "name": "Ghana",
+          "prob": 15
+        },
+        {
+          "name": "Croatia",
+          "prob": 12
+        }
+      ],
+      "field": 1
+    },
+    {
+      "team": {
+        "name": "Tunisia",
+        "code": "tn",
+        "color": "#E70013"
+      },
+      "opponent": {
+        "name": "Mexico",
+        "code": "mx",
+        "color": "#0B6B3A",
+        "prob": 78
+      },
+      "alternates": [
+        {
+          "name": "Switzerland",
+          "prob": 22
+        }
+      ],
+      "field": 0
     }
   ],
-  "last_result": "England 4-2 Croatia"
+  "last_result": "Czechia 0-3 Mexico"
 }
